@@ -1,5 +1,5 @@
 import { access, readFile } from "node:fs/promises";
-import { basename, delimiter, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import type { PdfPageRenderer } from "../assets/pdf-page-renderer.ts";
 import { loadGuidanceIndex, rebuildGuidanceIndex } from "../curriculum/guidance-extractor.ts";
 import { normalizeMusicLessonRequest } from "../lesson/lesson-request.ts";
@@ -8,6 +8,7 @@ import { initializePresentationProject } from "../project/presentation-init.ts";
 import { readPresentationRuntimeConfig, rememberPptMasterExportConfig } from "../project/runtime-config.ts";
 import { readPresentationSourceManifest } from "../project/source-manifest.ts";
 import { type PptxReviewRenderer, renderPptxReview } from "../qa/pptx-review-renderer.ts";
+import { resolveVisualQaToolPaths } from "../qa/visual-qa-tools.ts";
 import { renderAndExportMusicDeck, type SvgPptxExporter } from "../svg/svg-pptx-exporter.ts";
 import { renderMusicDeckSvgProject } from "../svg/svg-project-renderer.ts";
 import { indexTextbooks } from "../textbooks/textbook-indexer.ts";
@@ -73,20 +74,6 @@ async function fileExists(path: string) {
 	} catch {
 		return false;
 	}
-}
-
-async function findExecutable(commandName: string) {
-	if (commandName.includes("/")) {
-		return (await fileExists(commandName)) ? commandName : undefined;
-	}
-	const pathEntries = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
-	for (const pathEntry of pathEntries) {
-		const candidate = join(pathEntry, commandName);
-		if (await fileExists(candidate)) {
-			return candidate;
-		}
-	}
-	return undefined;
 }
 
 function nextValue(args: string[], index: number, flag: string) {
@@ -360,18 +347,10 @@ async function runDoctorCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
 	} else {
 		stdout("PPT Master SVG exporter: missing");
 	}
-	const libreOfficePath =
-		config.visualQa?.libreOfficePath ??
-		process.env.PI_PRESENTATION_LIBREOFFICE ??
-		(await findExecutable("soffice")) ??
-		(await findExecutable("libreoffice"));
-	const pdfToPngPath =
-		config.visualQa?.pdfToPngPath ?? process.env.PI_PRESENTATION_PDFTOPPM ?? (await findExecutable("pdftoppm"));
-	const pythonPath =
-		config.visualQa?.pythonPath ?? process.env.PI_PRESENTATION_PYTHON ?? (await findExecutable("python3"));
-	stdout(`Visual QA LibreOffice: ${libreOfficePath ?? "missing"}`);
-	stdout(`Visual QA PDF renderer: ${pdfToPngPath ?? "missing"}`);
-	stdout(`Visual QA Python: ${pythonPath ?? "missing"}`);
+	const visualQaTools = await resolveVisualQaToolPaths({ config: config.visualQa });
+	stdout(`Visual QA LibreOffice: ${visualQaTools.libreOfficePath ?? "missing"}`);
+	stdout(`Visual QA PDF renderer: ${visualQaTools.pdfToPngPath ?? "missing"}`);
+	stdout(`Visual QA Python: ${visualQaTools.pythonPath ?? "missing"}`);
 	stdout(initialized && scriptExists ? "Doctor: ready" : "Doctor: needs configuration");
 }
 
@@ -390,13 +369,14 @@ async function runReviewForPptx(
 ) {
 	const outputDir = reviewOutputDir ?? join(dirname(pptxPath), `${basename(pptxPath)}.review`);
 	const config = await readPresentationRuntimeConfig(projectRoot);
+	const visualQaTools = await resolveVisualQaToolPaths({ config: config.visualQa });
 	const renderer = options.renderPptxReview ?? renderPptxReview;
 	const report = await renderer({
 		pptxPath,
 		outputDir,
-		libreOfficePath: config.visualQa?.libreOfficePath,
-		pdfToPngPath: config.visualQa?.pdfToPngPath,
-		pythonPath: config.visualQa?.pythonPath,
+		libreOfficePath: visualQaTools.libreOfficePath,
+		pdfToPngPath: visualQaTools.pdfToPngPath,
+		pythonPath: visualQaTools.pythonPath,
 	});
 	stdout(`Review contact sheet: ${report.contactSheetPath}`);
 	stdout(`Review report: ${report.reportMarkdownPath}`);

@@ -17,6 +17,7 @@ All notable changes to this package will be documented in this file.
 - Added project-local runtime configuration and `music-ppt doctor` for PPT Master exporter setup.
 - Added `music-ppt review` for visual QA review artifacts when LibreOffice and PDF rendering tools are available.
 - Added `music-ppt pptx --review` to run visual QA immediately after PPTX export.
+- Added automatic visual QA tool discovery for common macOS LibreOffice and Poppler install paths.
 
 ### Changed
 

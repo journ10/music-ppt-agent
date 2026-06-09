@@ -116,6 +116,9 @@ describe("generateMusicDeck", () => {
 		expect(await readFile(result.files.svgPaths[5], "utf-8")).toContain(
 			"../assets/yue-jiao-ban-yi-nian-ji-xia-ce-page-3.png",
 		);
+		const mapSlideSvg = await readFile(result.files.svgPaths[1], "utf-8");
+		expect(mapSlideSvg).not.toContain('x="96" y="206" width="920"');
+		expect(mapSlideSvg).toContain('x="136" y="340" width="132" height="96"');
 		expect(await readFile(result.files.designSpecPath, "utf-8")).toContain("PPT Master-compatible SVG");
 		expect(await readFile(result.files.specLockPath, "utf-8")).toContain("Slides: 12");
 		expect(await readFile(result.files.svgQaMarkdownPath, "utf-8")).toContain("Errors: 0");

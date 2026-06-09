@@ -103,6 +103,12 @@ export type { ForbiddenTermFinding } from "./qa/slide-text-audit.ts";
 export { auditSlideText } from "./qa/slide-text-audit.ts";
 export type { SvgProjectAuditOptions, SvgProjectAuditReport } from "./qa/svg-project-audit.ts";
 export { auditSvgProject, formatSvgProjectAuditMarkdown } from "./qa/svg-project-audit.ts";
+export type {
+	ResolveVisualQaToolPathsOptions,
+	VisualQaRuntimeConfig,
+	VisualQaToolPaths,
+} from "./qa/visual-qa-tools.ts";
+export { resolveVisualQaToolPaths } from "./qa/visual-qa-tools.ts";
 export type { MusicLessonStoryboard, SlideAssetRef, SlideSpec } from "./storyboard/slide-spec.ts";
 export { buildMusicLessonStoryboard } from "./storyboard/storyboard-builder.ts";
 export type {

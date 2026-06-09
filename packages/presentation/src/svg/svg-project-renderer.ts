@@ -124,7 +124,7 @@ ${slideBackground(slide)}
 <text x="72" y="62" font-size="40" fill="#FFFFFF" font-weight="700" font-family="PingFang SC, Microsoft YaHei, sans-serif">${escapeXml(titleLines[0])}</text>
 <text x="1172" y="62" text-anchor="end" font-size="24" fill="#FFFFFF" font-family="PingFang SC, Microsoft YaHei, sans-serif">${String(index + 1).padStart(2, "0")}</text>
 ${mainAsset ? renderImageAsset(mainAsset) : ""}
-${renderStudentText(slide, mainAsset !== undefined)}
+${slide.layout === "map" ? "" : renderStudentText(slide, mainAsset !== undefined)}
 ${renderMapChips(slide)}
 </svg>
 `;

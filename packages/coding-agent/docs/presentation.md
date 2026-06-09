@@ -50,7 +50,8 @@ The saved CLI configuration lives in `.pi/presentation/config.json`.
 `music-ppt <lesson request>` is shorthand for `music-ppt pptx <lesson request>`.
 `music-ppt pptx <request> --review` exports the deck and immediately renders visual QA artifacts. `music-ppt
 review <pptx>` runs that review later for an existing PPTX when LibreOffice, `pdftoppm`, Python, and Pillow are
-available.
+available. The CLI checks PATH plus common macOS locations such as `/Applications/LibreOffice.app` and
+`/opt/homebrew/bin/pdftoppm`.
 `music-ppt doctor` reports those dependencies separately from core PPTX generation readiness.
 
 ## Commands
