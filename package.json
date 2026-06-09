@@ -1,5 +1,6 @@
 {
-	"name": "pi-monorepo",
+	"name": "music-ppt-agent-monorepo",
+	"description": "Primary music teacher PPT generation agent built on the Pi runtime",
 	"private": true,
 	"type": "module",
 	"workspaces": [

@@ -1,7 +1,7 @@
 {
 	"name": "@earendil-works/pi-presentation",
 	"version": "0.78.1",
-	"description": "Presentation generation primitives for Pi",
+	"description": "Primary music PPT generation primitives for Music PPT Agent",
 	"type": "module",
 	"bin": {
 		"music-ppt": "./dist/cli.js"
@@ -34,7 +34,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/earendil-works/pi.git",
+		"url": "git+https://github.com/journ10/music-ppt-agent.git",
 		"directory": "packages/presentation"
 	},
 	"engines": {
