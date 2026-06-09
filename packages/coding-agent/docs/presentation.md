@@ -26,6 +26,8 @@ Use the dedicated CLI when validating the PPT pipeline directly. From this sourc
 
 ```bash
 music-ppt init
+music-ppt sources add guidance /path/to/guidance.pdf --id guidance-2022 --title "指导思想"
+music-ppt sources add textbook /path/to/textbook.pdf --id yue-grade1-volume2 --title "粤教版一年级下册" --publisher "粤教版" --grade "一年级" --volume "下册"
 music-ppt sources status
 music-ppt guidance rebuild
 music-ppt index rebuild

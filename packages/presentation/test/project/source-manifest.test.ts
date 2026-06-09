@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	addPresentationSource,
 	getEnabledPresentationSources,
 	initializePresentationProject,
 	readPresentationSourceManifest,
@@ -50,5 +51,41 @@ describe("presentation source manifest", () => {
 		expect(resolvePresentationSourcePath(projectRoot, manifest.sources[0])).toBe(
 			join(projectRoot, "sources/guidance.pdf"),
 		);
+	});
+
+	it("adds or replaces a source by id without duplicating entries", async () => {
+		const projectRoot = await createTempProject();
+
+		await addPresentationSource(projectRoot, {
+			id: "grade1-textbook",
+			kind: "textbook",
+			path: "/tmp/old.pdf",
+			title: "旧教材",
+			subject: "music",
+		});
+		const manifest = await addPresentationSource(projectRoot, {
+			id: "grade1-textbook",
+			kind: "textbook",
+			path: "/tmp/new.pdf",
+			title: "粤教版一年级下册",
+			subject: "music",
+			publisher: "粤教版",
+			grade: "一年级",
+			volume: "下册",
+		});
+
+		expect(manifest.sources).toEqual([
+			{
+				id: "grade1-textbook",
+				kind: "textbook",
+				path: "/tmp/new.pdf",
+				title: "粤教版一年级下册",
+				subject: "music",
+				publisher: "粤教版",
+				grade: "一年级",
+				volume: "下册",
+			},
+		]);
+		expect((await readPresentationSourceManifest(projectRoot)).sources).toHaveLength(1);
 	});
 });

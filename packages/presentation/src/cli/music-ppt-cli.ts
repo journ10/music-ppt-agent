@@ -6,7 +6,13 @@ import { normalizeMusicLessonRequest } from "../lesson/lesson-request.ts";
 import { planMusicDeck } from "../lesson/music-deck-generator.ts";
 import { initializePresentationProject } from "../project/presentation-init.ts";
 import { readPresentationRuntimeConfig, rememberPptMasterExportConfig } from "../project/runtime-config.ts";
-import { readPresentationSourceManifest } from "../project/source-manifest.ts";
+import {
+	addPresentationSource,
+	type PresentationSourceEntry,
+	type PresentationSourceKind,
+	type PresentationSourceVolume,
+	readPresentationSourceManifest,
+} from "../project/source-manifest.ts";
 import { type PptxReviewRenderer, renderPptxReview } from "../qa/pptx-review-renderer.ts";
 import { resolveVisualQaToolPaths } from "../qa/visual-qa-tools.ts";
 import { renderAndExportMusicDeck, type SvgPptxExporter } from "../svg/svg-pptx-exporter.ts";
@@ -39,12 +45,14 @@ type ParsedCliArgs = {
 };
 
 const COMMANDS = new Set(["init", "sources", "guidance", "index", "config", "doctor", "review", "plan", "svg", "pptx"]);
+const COMMAND_OPTION_FLAGS = new Set(["--id", "--title", "--role", "--publisher", "--grade", "--volume"]);
 
 const HELP_TEXT = `music-ppt - primary music teacher PPT generator
 
 Usage:
   music-ppt init [--root <dir>]
   music-ppt sources status [--root <dir>]
+  music-ppt sources add <guidance|textbook|reference-ppt|media> <path> --id <id> [--title <title>]
   music-ppt guidance status|rebuild [--root <dir>]
   music-ppt index status|rebuild|inspect <lesson> [--root <dir>]
   music-ppt config show [--root <dir>]
@@ -133,6 +141,11 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 		}
 		if (arg === "--review") {
 			reviewAfterExport = true;
+			continue;
+		}
+		if (COMMAND_OPTION_FLAGS.has(arg)) {
+			commandArgs.push(arg, nextValue(argv, index, arg));
+			index += 1;
 			continue;
 		}
 		if (arg.startsWith("--")) {
@@ -244,14 +257,77 @@ function requestFromArgs(args: string[]) {
 	return request;
 }
 
+function readOption(args: string[], flag: string) {
+	const index = args.indexOf(flag);
+	if (index === -1) {
+		return undefined;
+	}
+	return nextValue(args, index, flag);
+}
+
+function assertSourceKind(value: string): PresentationSourceKind {
+	if (value === "guidance" || value === "textbook" || value === "reference-ppt" || value === "media") {
+		return value;
+	}
+	throw new Error(`Unsupported source kind: ${value}`);
+}
+
+function assertSourceVolume(value: string | undefined): PresentationSourceVolume | undefined {
+	if (value === undefined) {
+		return undefined;
+	}
+	if (value === "上册" || value === "下册") {
+		return value;
+	}
+	throw new Error(`Unsupported source volume: ${value}`);
+}
+
+function optionalStringField(key: string, value: string | undefined) {
+	return value ? { [key]: value } : {};
+}
+
+function sourceFromCliArgs(kindArg: string | undefined, pathArg: string | undefined, restArgs: string[]) {
+	if (!kindArg) {
+		throw new Error("Missing source kind.");
+	}
+	if (!pathArg) {
+		throw new Error("Missing source path.");
+	}
+	const kind = assertSourceKind(kindArg);
+	const id = readOption(restArgs, "--id");
+	if (!id) {
+		throw new Error("Missing --id for source.");
+	}
+	const volume = assertSourceVolume(readOption(restArgs, "--volume"));
+	const source: PresentationSourceEntry = {
+		id,
+		kind,
+		path: pathArg,
+		...optionalStringField("title", readOption(restArgs, "--title")),
+		...optionalStringField("role", readOption(restArgs, "--role")),
+		...(kind === "textbook" ? { subject: "music" as const } : {}),
+		...optionalStringField("publisher", readOption(restArgs, "--publisher")),
+		...optionalStringField("grade", readOption(restArgs, "--grade")),
+		...(volume ? { volume } : {}),
+	};
+	return source;
+}
+
 async function runSourcesCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
 	await ensurePresentationInitialized(parsed.projectRoot);
-	const [subcommand = "status"] = parsed.commandArgs;
-	if (subcommand !== "status") {
-		throw new Error(`Unknown sources command: ${subcommand}`);
+	const [subcommand = "status", kindArg, pathArg, ...restArgs] = parsed.commandArgs;
+	if (subcommand === "add") {
+		const source = sourceFromCliArgs(kindArg, pathArg, restArgs);
+		await addPresentationSource(parsed.projectRoot, source);
+		stdout(`Added presentation source ${source.id} (${source.kind})`);
+		return;
 	}
-	const manifest = await readPresentationSourceManifest(parsed.projectRoot);
-	stdout(formatSourceManifestStatus(manifest));
+	if (subcommand === "status") {
+		const manifest = await readPresentationSourceManifest(parsed.projectRoot);
+		stdout(formatSourceManifestStatus(manifest));
+		return;
+	}
+	throw new Error(`Unknown sources command: ${subcommand}`);
 }
 
 async function runGuidanceCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {

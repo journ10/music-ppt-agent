@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
 	indexTextbooks,
 	initializePresentationProject,
+	readPresentationSourceManifest,
 	writePresentationSourceManifest,
 } from "@earendil-works/pi-presentation";
 import { afterEach, describe, expect, it } from "vitest";
@@ -75,6 +76,89 @@ describe("runMusicPptCli", () => {
 		expect(output.lines).toContain("Presentation sources: empty");
 		expect(output.lines).toContain("Guidance index: 0/0 sources indexed, 0 constraints");
 		expect(output.lines).toContain("Textbook index: 0 books");
+	});
+
+	it("adds guidance and textbook sources from the standalone CLI", async () => {
+		const projectRoot = await createTempProject("pi-music-ppt-cli-sources-add-");
+		await initializePresentationProject(projectRoot);
+		const guidancePath = join(projectRoot, "guidance.pdf");
+		const textbookPath = join(projectRoot, "grade1.pdf");
+		await writeFile(guidancePath, minimalPdfFixture(["音乐课堂重视聆听、情感体验。"]));
+		await writeFile(textbookPath, minimalPdfFixture(["温暖的家\n33"]));
+		const output = createOutputCollector();
+
+		const guidanceExitCode = await runMusicPptCli(
+			[
+				"sources",
+				"add",
+				"guidance",
+				guidancePath,
+				"--id",
+				"guidance-2022",
+				"--title",
+				"指导思想",
+				"--root",
+				projectRoot,
+			],
+			{
+				cwd: "/tmp",
+				stdout: output.writeLine,
+				stderr: output.writeLine,
+			},
+		);
+		const textbookExitCode = await runMusicPptCli(
+			[
+				"sources",
+				"add",
+				"textbook",
+				textbookPath,
+				"--id",
+				"yue-grade1-volume2",
+				"--title",
+				"粤教版一年级下册",
+				"--publisher",
+				"粤教版",
+				"--grade",
+				"一年级",
+				"--volume",
+				"下册",
+				"--root",
+				projectRoot,
+			],
+			{
+				cwd: "/tmp",
+				stdout: output.writeLine,
+				stderr: output.writeLine,
+			},
+		);
+		await runMusicPptCli(["sources", "status", "--root", projectRoot], {
+			cwd: "/tmp",
+			stdout: output.writeLine,
+			stderr: output.writeLine,
+		});
+
+		expect(guidanceExitCode).toBe(0);
+		expect(textbookExitCode).toBe(0);
+		expect(output.lines.join("\n")).toContain("Added presentation source guidance-2022 (guidance)");
+		expect(output.lines.join("\n")).toContain("Presentation sources: guidance: 1, textbook: 1");
+		expect((await readPresentationSourceManifest(projectRoot)).sources).toEqual([
+			{
+				id: "guidance-2022",
+				kind: "guidance",
+				path: guidancePath,
+				title: "指导思想",
+			},
+			{
+				id: "yue-grade1-volume2",
+				kind: "textbook",
+				path: textbookPath,
+				title: "粤教版一年级下册",
+				subject: "music",
+				publisher: "粤教版",
+				grade: "一年级",
+				volume: "下册",
+			},
+		]);
 	});
 
 	it("plans, renders, and exports a lesson from the standalone CLI", async () => {

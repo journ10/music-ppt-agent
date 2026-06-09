@@ -67,6 +67,20 @@ export async function writePresentationSourceManifest(
 	await writeFile(getPresentationProjectPaths(projectRoot).sourceManifest, formatPresentationSourceManifest(manifest));
 }
 
+export async function addPresentationSource(
+	projectRoot: string,
+	source: PresentationSourceEntry,
+): Promise<PresentationSourceManifest> {
+	const manifest = await readPresentationSourceManifest(projectRoot);
+	const sources = manifest.sources.filter((candidate) => candidate.id !== source.id);
+	const nextManifest: PresentationSourceManifest = {
+		version: 1,
+		sources: [...sources, source],
+	};
+	await writePresentationSourceManifest(projectRoot, nextManifest);
+	return nextManifest;
+}
+
 export function getEnabledPresentationSources(
 	manifest: PresentationSourceManifest,
 	kind?: PresentationSourceKind,

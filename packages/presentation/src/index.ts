@@ -81,6 +81,7 @@ export type {
 	PresentationSourceVolume,
 } from "./project/source-manifest.ts";
 export {
+	addPresentationSource,
 	EMPTY_PRESENTATION_SOURCE_MANIFEST,
 	formatPresentationSourceManifest,
 	getEnabledPresentationSources,
