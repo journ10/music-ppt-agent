@@ -11,6 +11,7 @@ import {
 	planMusicDeck,
 	readPresentationSourceManifest,
 	rebuildGuidanceIndex,
+	renderAndExportMusicDeck,
 	renderMusicDeckSvgProject,
 	resolveTextbookLesson,
 } from "@earendil-works/pi-presentation";
@@ -148,6 +149,14 @@ export default function presentationExtension(pi: ExtensionAPI) {
 					ctx.ui.notify(
 						`已生成《${result.plan.context.request.title}》SVG 项目：${result.files.svgDir}`,
 						result.audit.errors.length > 0 ? "warning" : "info",
+					);
+					return;
+				}
+				if (command === "pptx-svg") {
+					const result = await renderAndExportMusicDeck(ctx.cwd, rest.join(" "));
+					ctx.ui.notify(
+						`已导出《${result.plan.context.request.title}》PPTX：${result.pptxExport.outputPath}`,
+						"info",
 					);
 					return;
 				}
@@ -297,6 +306,20 @@ export default function presentationExtension(pi: ExtensionAPI) {
 			const result = await renderMusicDeckSvgProject(ctx.cwd, params.request);
 			return {
 				content: [{ type: "text", text: `Rendered ${result.files.svgDir}` }],
+				details: result,
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "presentation_export_svg_pptx",
+		label: "Presentation Export SVG PPTX",
+		description: "Render PPT Master-style SVG artifacts and export them to PPTX.",
+		parameters: LessonParams,
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const result = await renderAndExportMusicDeck(ctx.cwd, params.request);
+			return {
+				content: [{ type: "text", text: `Exported ${result.pptxExport.outputPath}` }],
 				details: result,
 			};
 		},

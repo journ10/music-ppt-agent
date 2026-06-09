@@ -89,6 +89,14 @@ export { auditSvgProject, formatSvgProjectAuditMarkdown } from "./qa/svg-project
 export type { MusicLessonStoryboard, SlideAssetRef, SlideSpec } from "./storyboard/slide-spec.ts";
 export { buildMusicLessonStoryboard } from "./storyboard/storyboard-builder.ts";
 export type {
+	RenderAndExportMusicDeckOptions,
+	RenderedAndExportedMusicDeck,
+	SvgPptxExporter,
+	SvgPptxExportOptions,
+	SvgPptxExportResult,
+} from "./svg/svg-pptx-exporter.ts";
+export { exportSvgProjectToPptx, renderAndExportMusicDeck } from "./svg/svg-pptx-exporter.ts";
+export type {
 	RenderedMusicDeckSvgFiles,
 	RenderedMusicDeckSvgProject,
 	RenderMusicDeckSvgProjectOptions,

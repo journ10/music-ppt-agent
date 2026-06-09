@@ -37,6 +37,7 @@ describe("built-in presentation extension", () => {
 		]);
 		expect([...presentation!.tools.keys()].sort()).toEqual([
 			"presentation_audit_pptx",
+			"presentation_export_svg_pptx",
 			"presentation_generate_music_deck",
 			"presentation_guidance_rebuild",
 			"presentation_guidance_status",

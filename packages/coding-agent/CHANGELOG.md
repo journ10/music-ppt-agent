@@ -8,6 +8,7 @@
 - Added presentation source and guidance index commands/tools for primary music PPT generation.
 - Added presentation planning command/tool output for lesson context and storyboard artifacts.
 - Added presentation SVG render command/tool output for PPT Master-style intermediate artifacts.
+- Added presentation SVG-to-PPTX export command/tool for PPT Master-backed native deck generation.
 - Added project trust gating for project-local settings, resources, instructions, and packages ([#5332](https://github.com/earendil-works/pi/pull/5332)).
 - Added the latest prompt cache hit rate to the interactive footer.
 - Exported RPC extension UI request and response types from the public API ([#5455](https://github.com/earendil-works/pi/issues/5455)).

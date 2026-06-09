@@ -7,6 +7,7 @@ import {
 	initializePresentationProject,
 	planMusicDeck,
 	rebuildGuidanceIndex,
+	renderAndExportMusicDeck,
 	renderMusicDeckSvgProject,
 	writePresentationSourceManifest,
 } from "@earendil-works/pi-presentation";
@@ -119,6 +120,48 @@ describe("generateMusicDeck", () => {
 		expect(await readFile(result.files.specLockPath, "utf-8")).toContain("Slides: 12");
 		expect(await readFile(result.files.svgQaMarkdownPath, "utf-8")).toContain("Errors: 0");
 		expect(await readFile(join(result.files.notesDir, "slide-01.md"), "utf-8")).toContain("Source pages: 3");
+	});
+
+	it("renders SVG artifacts and exports them through a PPT Master adapter", async () => {
+		const projectRoot = await mkdtemp(join(tmpdir(), "pi-e2e-warm-home-pptx-svg-"));
+		tempDirs.push(projectRoot);
+		await initializePresentationProject(projectRoot);
+		await writeFile(
+			join(projectRoot, ".pi", "presentation", "textbooks", "粤教版-一年级下册.pdf"),
+			minimalPdfFixture([
+				"目录\n第5单元 幸福的一家 / 31\n演唱 温暖的家 / 33",
+				"幸福的一家\n31",
+				"温暖的家\n想想：你能为家人做些什么事情来表达自己的爱呢？\n33",
+			]),
+		);
+		await indexTextbooks(projectRoot);
+		const outputPath = join(projectRoot, "warm-home.pptx");
+
+		const result = await renderAndExportMusicDeck(projectRoot, "做一年级下册《温暖的家》的教学PPT", {
+			projectId: "golden-warm-home-pptx-svg",
+			outputPath,
+			renderPdfPage: async (options) => {
+				await writeFile(options.outputPath, tinyPngFixture());
+				return {
+					outputPath: options.outputPath,
+					widthPx: 1600,
+					heightPx: 2263,
+				};
+			},
+			exportSvgProject: async (options) => {
+				const exportedPath = options.outputPath ?? outputPath;
+				await writeFile(exportedPath, "fake pptx", "utf-8");
+				return {
+					projectDir: options.projectDir,
+					outputPath: exportedPath,
+					scriptPath: "fake-svg-to-pptx.py",
+				};
+			},
+		});
+
+		expect(result.audit.errors).toEqual([]);
+		expect(result.pptxExport).toMatchObject({ outputPath, scriptPath: "fake-svg-to-pptx.py" });
+		expect(await readFile(outputPath, "utf-8")).toBe("fake pptx");
 	});
 
 	it("resolves one indexed lesson, writes a deck, embeds audio/video, and passes audit", async () => {

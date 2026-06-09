@@ -12,6 +12,7 @@ All notable changes to this package will be documented in this file.
 - Added music deck planning artifacts with full lesson context and storyboard output.
 - Added PPT Master-style SVG project output with textbook page PNG assets and slide notes.
 - Added basic SVG project QA reports for slide count, notes, assets, and forbidden student-facing terms.
+- Added configurable PPT Master SVG-to-PPTX export adapter.
 
 ### Changed
 
