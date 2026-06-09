@@ -440,6 +440,30 @@ describe("runMusicPptCli", () => {
 		expect(output.lines.join("\n")).toContain("Doctor: ready");
 	});
 
+	it("does not report doctor ready without an indexed textbook", async () => {
+		const projectRoot = await createTempProject("pi-music-ppt-cli-doctor-empty-");
+		await initializePresentationProject(projectRoot);
+		const exporterPath = join(projectRoot, "svg_to_pptx.py");
+		await writeFile(exporterPath, "# fake exporter\n", "utf-8");
+		await runMusicPptCli(["config", "set", "ppt-master", exporterPath, "--root", projectRoot], {
+			cwd: "/tmp",
+			stdout: () => {},
+			stderr: () => {},
+		});
+		const output = createOutputCollector();
+
+		const doctorExitCode = await runMusicPptCli(["doctor", "--root", projectRoot], {
+			cwd: "/tmp",
+			stdout: output.writeLine,
+			stderr: output.writeLine,
+		});
+
+		expect(doctorExitCode).toBe(0);
+		expect(output.lines).toContain("Textbook index: 0 books");
+		expect(output.lines).toContain("Doctor: needs configuration");
+		expect(output.lines).not.toContain("Doctor: ready");
+	});
+
 	it("renders PPTX review artifacts from the standalone CLI", async () => {
 		const projectRoot = await createTempProject("pi-music-ppt-cli-review-");
 		await initializePresentationProject(projectRoot);

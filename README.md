@@ -52,6 +52,7 @@ npm run music-ppt -- pptx "做一年级下册《温暖的家》的教学PPT" \
 ```
 
 `--rebuild` 会在生成前从已登记 sources 刷新指导思想索引和教材索引。`--audit` 会检查 PPTX 结构、页数、禁用学生页术语和媒体 package。`--review` 会把 PPTX 通过 LibreOffice 渲染成图片并生成 contact sheet。
+`doctor` 会检查项目初始化、PPT Master exporter、已索引教材数量和视觉 review 依赖；只有 exporter 可用且至少有一本教材已索引时才报告 ready。
 
 输出位于：
 

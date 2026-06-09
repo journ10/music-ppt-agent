@@ -25,3 +25,4 @@ All notable changes to this package will be documented in this file.
 ### Changed
 
 - Generalized the default storyboard so non-rain lessons no longer receive rain-specific slide text.
+- Changed `music-ppt doctor` so it reports ready only after a PPT Master exporter is configured and at least one textbook is indexed.

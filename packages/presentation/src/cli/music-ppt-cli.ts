@@ -459,7 +459,8 @@ async function runDoctorCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
 	stdout(formatSourceManifestStatus(manifest));
 	const guidanceIndex = await loadGuidanceIndex(parsed.projectRoot);
 	stdout(formatGuidanceStatus(guidanceIndex));
-	stdout(`Textbook index: ${await countIndexedTextbooks(parsed.projectRoot)} books`);
+	const indexedTextbookCount = await countIndexedTextbooks(parsed.projectRoot);
+	stdout(`Textbook index: ${indexedTextbookCount} books`);
 
 	const config = await readPresentationRuntimeConfig(parsed.projectRoot);
 	const scriptPath = config.pptMaster?.svgToPptxScript ?? process.env.PI_PRESENTATION_SVG_TO_PPTX_SCRIPT;
@@ -475,7 +476,7 @@ async function runDoctorCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
 	stdout(`Visual QA LibreOffice: ${visualQaTools.libreOfficePath ?? "missing"}`);
 	stdout(`Visual QA PDF renderer: ${visualQaTools.pdfToPngPath ?? "missing"}`);
 	stdout(`Visual QA Python: ${visualQaTools.pythonPath ?? "missing"}`);
-	stdout(initialized && scriptExists ? "Doctor: ready" : "Doctor: needs configuration");
+	stdout(scriptExists && indexedTextbookCount > 0 ? "Doctor: ready" : "Doctor: needs configuration");
 }
 
 async function runReviewCommand(parsed: ParsedCliArgs, options: MusicPptCliOptions, stdout: OutputWriter) {
