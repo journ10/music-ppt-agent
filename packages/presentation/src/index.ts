@@ -1,5 +1,17 @@
 export const presentationPackageName = "@earendil-works/pi-presentation";
 
+export type {
+	PdfPageRenderer,
+	PdfPageRenderOptions,
+	PdfPageRenderResult,
+} from "./assets/pdf-page-renderer.ts";
+export { renderPdfPageToPng } from "./assets/pdf-page-renderer.ts";
+export type {
+	MaterializeTextbookAssetsOptions,
+	TextbookAssetManifest,
+	TextbookPageAsset,
+} from "./assets/textbook-assets.ts";
+export { materializeTextbookAssets } from "./assets/textbook-assets.ts";
 export type { CurriculumContext, CurriculumMarkdownFile } from "./curriculum/curriculum-loader.ts";
 export { loadCurriculumContext } from "./curriculum/curriculum-loader.ts";
 export { DEFAULT_PRIMARY_MUSIC_CURRICULUM, DEFAULT_TEACHING_GUIDANCE } from "./curriculum/default-curriculum.ts";
@@ -72,8 +84,16 @@ export type { PptxAuditOptions, PptxAuditReport } from "./qa/pptx-audit.ts";
 export { auditPptxPackage, formatPptxAuditMarkdown } from "./qa/pptx-audit.ts";
 export type { ForbiddenTermFinding } from "./qa/slide-text-audit.ts";
 export { auditSlideText } from "./qa/slide-text-audit.ts";
+export type { SvgProjectAuditOptions, SvgProjectAuditReport } from "./qa/svg-project-audit.ts";
+export { auditSvgProject, formatSvgProjectAuditMarkdown } from "./qa/svg-project-audit.ts";
 export type { MusicLessonStoryboard, SlideAssetRef, SlideSpec } from "./storyboard/slide-spec.ts";
 export { buildMusicLessonStoryboard } from "./storyboard/storyboard-builder.ts";
+export type {
+	RenderedMusicDeckSvgFiles,
+	RenderedMusicDeckSvgProject,
+	RenderMusicDeckSvgProjectOptions,
+} from "./svg/svg-project-renderer.ts";
+export { renderMusicDeckSvgProject } from "./svg/svg-project-renderer.ts";
 export type { PdfTextExtractor, PdfTextPage } from "./textbooks/pdf-text-extractor.ts";
 export { extractPdfTextPages } from "./textbooks/pdf-text-extractor.ts";
 export type { TextbookIndexOptions, TextbookIndexResult } from "./textbooks/textbook-indexer.ts";

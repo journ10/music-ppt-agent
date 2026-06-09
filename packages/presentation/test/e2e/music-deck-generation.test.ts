@@ -7,6 +7,7 @@ import {
 	initializePresentationProject,
 	planMusicDeck,
 	rebuildGuidanceIndex,
+	renderMusicDeckSvgProject,
 	writePresentationSourceManifest,
 } from "@earendil-works/pi-presentation";
 import { afterEach, describe, expect, it } from "vitest";
@@ -75,6 +76,49 @@ describe("generateMusicDeck", () => {
 		expect(await readFile(result.files.lessonContextPath, "utf-8")).toContain('"title": "温暖的家"');
 		expect(await readFile(result.files.storyboardPath, "utf-8")).toContain('"lessonTitle": "温暖的家"');
 		expect(await readFile(result.files.planReportPath, "utf-8")).toContain("Storyboard 页数：12");
+	});
+
+	it("renders a PPT Master-style SVG project with a textbook page asset", async () => {
+		const projectRoot = await mkdtemp(join(tmpdir(), "pi-e2e-warm-home-svg-"));
+		tempDirs.push(projectRoot);
+		await initializePresentationProject(projectRoot);
+		await writeFile(
+			join(projectRoot, ".pi", "presentation", "textbooks", "粤教版-一年级下册.pdf"),
+			minimalPdfFixture([
+				"目录\n第5单元 幸福的一家 / 31\n演唱 温暖的家 / 33",
+				"幸福的一家\n31",
+				"温暖的家\n想想：你能为家人做些什么事情来表达自己的爱呢？\n33",
+			]),
+		);
+		await indexTextbooks(projectRoot);
+
+		const result = await renderMusicDeckSvgProject(projectRoot, "做一年级下册《温暖的家》的教学PPT", {
+			projectId: "golden-warm-home-svg",
+			renderPdfPage: async (options) => {
+				await writeFile(options.outputPath, tinyPngFixture());
+				return {
+					outputPath: options.outputPath,
+					widthPx: 1600,
+					heightPx: 2263,
+				};
+			},
+		});
+
+		expect(result.files.svgPaths).toHaveLength(12);
+		expect(result.audit.errors).toEqual([]);
+		expect(result.assetManifest.assets).toHaveLength(1);
+		expect(result.assetManifest.assets[0]).toMatchObject({
+			assetId: "yue-jiao-ban-yi-nian-ji-xia-ce-page-3",
+			pageNumber: 3,
+			relativeOutputPath: "yue-jiao-ban-yi-nian-ji-xia-ce-page-3.png",
+		});
+		expect(await readFile(result.files.svgPaths[5], "utf-8")).toContain(
+			"../assets/yue-jiao-ban-yi-nian-ji-xia-ce-page-3.png",
+		);
+		expect(await readFile(result.files.designSpecPath, "utf-8")).toContain("PPT Master-compatible SVG");
+		expect(await readFile(result.files.specLockPath, "utf-8")).toContain("Slides: 12");
+		expect(await readFile(result.files.svgQaMarkdownPath, "utf-8")).toContain("Errors: 0");
+		expect(await readFile(join(result.files.notesDir, "slide-01.md"), "utf-8")).toContain("Source pages: 3");
 	});
 
 	it("resolves one indexed lesson, writes a deck, embeds audio/video, and passes audit", async () => {

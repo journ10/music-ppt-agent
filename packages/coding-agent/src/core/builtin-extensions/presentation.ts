@@ -11,6 +11,7 @@ import {
 	planMusicDeck,
 	readPresentationSourceManifest,
 	rebuildGuidanceIndex,
+	renderMusicDeckSvgProject,
 	resolveTextbookLesson,
 } from "@earendil-works/pi-presentation";
 import { Type } from "typebox";
@@ -140,6 +141,14 @@ export default function presentationExtension(pi: ExtensionAPI) {
 				if (command === "plan") {
 					const result = await planMusicDeck(ctx.cwd, rest.join(" "));
 					ctx.ui.notify(`已规划《${result.context.request.title}》PPT：${result.files.storyboardPath}`, "info");
+					return;
+				}
+				if (command === "svg") {
+					const result = await renderMusicDeckSvgProject(ctx.cwd, rest.join(" "));
+					ctx.ui.notify(
+						`已生成《${result.plan.context.request.title}》SVG 项目：${result.files.svgDir}`,
+						result.audit.errors.length > 0 ? "warning" : "info",
+					);
 					return;
 				}
 				const result = await generateMusicDeck(ctx.cwd, args);
@@ -274,6 +283,20 @@ export default function presentationExtension(pi: ExtensionAPI) {
 			const result = await planMusicDeck(ctx.cwd, params.request);
 			return {
 				content: [{ type: "text", text: `Planned ${result.files.storyboardPath}` }],
+				details: result,
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "presentation_render_svg_project",
+		label: "Presentation Render SVG Project",
+		description: "Render a primary music PPT project to PPT Master-style SVG artifacts.",
+		parameters: LessonParams,
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const result = await renderMusicDeckSvgProject(ctx.cwd, params.request);
+			return {
+				content: [{ type: "text", text: `Rendered ${result.files.svgDir}` }],
 				details: result,
 			};
 		},

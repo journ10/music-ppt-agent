@@ -45,6 +45,7 @@ describe("built-in presentation extension", () => {
 			"presentation_init",
 			"presentation_plan_music_deck",
 			"presentation_remember_requirement",
+			"presentation_render_svg_project",
 			"presentation_resolve_lesson",
 			"presentation_sources_status",
 		]);
