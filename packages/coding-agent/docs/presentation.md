@@ -21,7 +21,8 @@ Place music textbook PDFs in `.pi/presentation/textbooks/`, then run `/ppt-index
 
 ## Standalone CLI
 
-Use the dedicated CLI when validating the PPT pipeline directly:
+Use the dedicated CLI when validating the PPT pipeline directly. From this source checkout, prefix commands with
+`npm run music-ppt --`; after package build or install, use `music-ppt` directly.
 
 ```bash
 music-ppt init
