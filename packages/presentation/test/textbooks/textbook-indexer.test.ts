@@ -1,7 +1,11 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { indexTextbooks, initializePresentationProject } from "@earendil-works/pi-presentation";
+import {
+	indexTextbooks,
+	initializePresentationProject,
+	writePresentationSourceManifest,
+} from "@earendil-works/pi-presentation";
 import { afterEach, describe, expect, it } from "vitest";
 import { minimalPdfFixture } from "../fixtures/binary-fixtures.ts";
 
@@ -125,5 +129,85 @@ describe("indexTextbooks", () => {
 			grade: "四年级",
 			volume: "下册",
 		});
+	});
+
+	it("discovers external textbook PDFs from the source manifest", async () => {
+		const projectRoot = await createTempProject();
+		const sourceDir = await mkdtemp(join(tmpdir(), "pi-textbook-manifest-source-"));
+		tempDirs.push(sourceDir);
+		const pdfPath = join(sourceDir, "downloaded.pdf");
+		await writeFile(pdfPath, minimalPdfFixture(["# 第5单元\n《快乐的家庭》\n谱例：1 2 3"]));
+		await writePresentationSourceManifest(projectRoot, {
+			version: 1,
+			sources: [
+				{
+					id: "yue-grade-1-volume-2",
+					kind: "textbook",
+					path: pdfPath,
+					title: "粤教版-一年级下册",
+					publisher: "粤教版",
+					grade: "一年级",
+					volume: "下册",
+				},
+			],
+		});
+
+		const result = await indexTextbooks(projectRoot);
+
+		expect(result.index.books[0]).toMatchObject({
+			bookId: "yue-jiao-ban-yi-nian-ji-xia-ce",
+			sourceId: "yue-grade-1-volume-2",
+			title: "粤教版-一年级下册",
+			publisher: "粤教版",
+			grade: "一年级",
+			volume: "下册",
+			pageCount: 1,
+		});
+	});
+
+	it("maps table-of-contents lesson page numbers to PDF page indexes", async () => {
+		const projectRoot = await createTempProject();
+		const pdfPath = join(projectRoot, ".pi", "presentation", "textbooks", "粤教版-一年级下册.pdf");
+		await writeFile(
+			pdfPath,
+			minimalPdfFixture([
+				"目录\n第5单元 幸福的一家 / 31\n表演 好妈妈 / 32\n演唱 温暖的家 / 33\n第6单元 下一单元 / 37\n演唱 下一首 / 38",
+				"幸福的一家\n31",
+				"好 妈 妈\n32",
+				"温暖的家\n33",
+				"延伸活动\n34",
+				"下一单元\n37",
+				"下一首\n38",
+			]),
+		);
+
+		await indexTextbooks(projectRoot);
+
+		const lessons = JSON.parse(
+			await readFile(
+				join(projectRoot, ".pi", "presentation", "index", "units", "yue-jiao-ban-yi-nian-ji-xia-ce.units.json"),
+				"utf-8",
+			),
+		);
+		expect(lessons).toMatchObject([
+			{
+				lessonTitle: "好妈妈",
+				unitTitle: "第5单元 幸福的一家",
+				pageStart: 3,
+				pageEnd: 3,
+			},
+			{
+				lessonTitle: "温暖的家",
+				unitTitle: "第5单元 幸福的一家",
+				pageStart: 4,
+				pageEnd: 5,
+			},
+			{
+				lessonTitle: "下一首",
+				unitTitle: "第6单元 下一单元",
+				pageStart: 7,
+				pageEnd: 7,
+			},
+		]);
 	});
 });

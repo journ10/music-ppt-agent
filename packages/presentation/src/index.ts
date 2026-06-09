@@ -11,6 +11,20 @@ export {
 	FORBIDDEN_STUDENT_SLIDE_TERMS,
 	scanStudentSlideTextForForbiddenTerms,
 } from "./curriculum/forbidden-slide-terms.ts";
+export type {
+	GuidanceConstraint,
+	GuidanceConstraintKind,
+	GuidanceExtractionOptions,
+	GuidanceIndex,
+	GuidanceSourceIndex,
+} from "./curriculum/guidance-extractor.ts";
+export {
+	EMPTY_GUIDANCE_INDEX,
+	extractGuidanceSources,
+	listForbiddenGuidanceSlideTerms,
+	loadGuidanceIndex,
+	rebuildGuidanceIndex,
+} from "./curriculum/guidance-extractor.ts";
 export type { MusicLessonContext, SourcePdfPageRef } from "./lesson/lesson-context-builder.ts";
 export { buildMusicLessonContext } from "./lesson/lesson-context-builder.ts";
 export type { NormalizedMusicLessonRequest } from "./lesson/lesson-request.ts";
@@ -19,8 +33,11 @@ export type {
 	GeneratedMusicDeck,
 	GeneratedMusicDeckFiles,
 	GenerateMusicDeckOptions,
+	PlanMusicDeckOptions,
+	PlannedMusicDeck,
+	PlannedMusicDeckFiles,
 } from "./lesson/music-deck-generator.ts";
-export { generateMusicDeck } from "./lesson/music-deck-generator.ts";
+export { generateMusicDeck, planMusicDeck } from "./lesson/music-deck-generator.ts";
 export type { MusicLessonActivity, MusicLessonPlan } from "./lesson/music-lesson-schema.ts";
 export { writePptxPackageWithMedia } from "./media/media-embedder.ts";
 export type { MediaManifest, MediaManifestItem } from "./media/media-manifest.ts";
@@ -35,6 +52,20 @@ export { getPresentationProjectPaths } from "./project/presentation-config.ts";
 export type { PresentationInitResult } from "./project/presentation-init.ts";
 export { initializePresentationProject } from "./project/presentation-init.ts";
 export { DEFAULT_LEARNED_REQUIREMENTS } from "./project/requirements-memory.ts";
+export type {
+	PresentationSourceEntry,
+	PresentationSourceKind,
+	PresentationSourceManifest,
+	PresentationSourceVolume,
+} from "./project/source-manifest.ts";
+export {
+	EMPTY_PRESENTATION_SOURCE_MANIFEST,
+	formatPresentationSourceManifest,
+	getEnabledPresentationSources,
+	readPresentationSourceManifest,
+	resolvePresentationSourcePath,
+	writePresentationSourceManifest,
+} from "./project/source-manifest.ts";
 export type { PptxMediaAuditItem } from "./qa/media-audit.ts";
 export { auditMediaParts } from "./qa/media-audit.ts";
 export type { PptxAuditOptions, PptxAuditReport } from "./qa/pptx-audit.ts";

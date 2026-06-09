@@ -1,6 +1,7 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DEFAULT_PRIMARY_MUSIC_CURRICULUM, DEFAULT_TEACHING_GUIDANCE } from "../curriculum/default-curriculum.ts";
+import { EMPTY_GUIDANCE_INDEX } from "../curriculum/guidance-extractor.ts";
 import { DEFAULT_PPT_REQUIREMENTS } from "./ppt-requirements.ts";
 import {
 	EMPTY_TEXTBOOK_INDEX_GENERATED_AT,
@@ -9,6 +10,7 @@ import {
 	PRESENTATION_PROJECT_DIRECTORIES,
 } from "./presentation-config.ts";
 import { DEFAULT_LEARNED_REQUIREMENTS } from "./requirements-memory.ts";
+import { EMPTY_PRESENTATION_SOURCE_MANIFEST, formatPresentationSourceManifest } from "./source-manifest.ts";
 
 export type PresentationInitResult = {
 	presentationRoot: string;
@@ -79,9 +81,21 @@ export async function initializePresentationProject(projectRoot: string): Promis
 		createdFiles,
 	);
 	await writeFileIfMissing(
+		paths.sourceManifest,
+		"sources.json",
+		formatPresentationSourceManifest(EMPTY_PRESENTATION_SOURCE_MANIFEST),
+		createdFiles,
+	);
+	await writeFileIfMissing(
 		paths.textbookIndex,
 		"index/textbooks.index.json",
 		createEmptyTextbookIndex(),
+		createdFiles,
+	);
+	await writeFileIfMissing(
+		paths.guidanceIndex,
+		"index/guidance.index.json",
+		`${JSON.stringify(EMPTY_GUIDANCE_INDEX, null, 2)}\n`,
 		createdFiles,
 	);
 	await writeFileIfMissing(

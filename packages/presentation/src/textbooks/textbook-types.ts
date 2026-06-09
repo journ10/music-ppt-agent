@@ -8,6 +8,7 @@ export type TextbookBookIndex = {
 	bookId: string;
 	title: string;
 	subject: "music";
+	sourceId?: string;
 	publisher?: string;
 	grade?: string;
 	volume?: "上册" | "下册";
@@ -20,6 +21,7 @@ export type TextbookBookIndex = {
 
 export type TextbookPageIndex = {
 	pageNumber: number;
+	printedPageNumber?: number;
 	text: string;
 	headings: string[];
 	detectedSongs: string[];

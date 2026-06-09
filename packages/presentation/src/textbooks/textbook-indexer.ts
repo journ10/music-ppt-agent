@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { basename, extname, join, relative, sep } from "node:path";
+import { basename, extname, isAbsolute, join, relative, sep } from "node:path";
 import { EMPTY_TEXTBOOK_INDEX_GENERATED_AT, getPresentationProjectPaths } from "../project/presentation-config.ts";
+import {
+	getEnabledPresentationSources,
+	type PresentationSourceEntry,
+	readPresentationSourceManifest,
+	resolvePresentationSourcePath,
+} from "../project/source-manifest.ts";
 import { extractPdfTextPages, type PdfTextExtractor, type PdfTextPage } from "./pdf-text-extractor.ts";
 import type { TextbookBookIndex, TextbookIndex, TextbookLessonIndex, TextbookPageIndex } from "./textbook-types.ts";
 
@@ -17,16 +23,31 @@ export type TextbookIndexResult = {
 	skippedBookIds: string[];
 };
 
+type TextbookPdfInput = {
+	pdfPath: string;
+	sourceId?: string;
+	title?: string;
+	publisher?: string;
+	grade?: string;
+	volume?: "上册" | "下册";
+};
+
 const ChineseSlugMap = new Map<string, string>([
 	["人", "ren"],
 	["音", "yin"],
 	["粤", "yue"],
 	["教", "jiao"],
 	["版", "ban"],
+	["一", "yi"],
+	["二", "er"],
 	["三", "san"],
 	["四", "si"],
 	["五", "wu"],
 	["六", "liu"],
+	["七", "qi"],
+	["八", "ba"],
+	["九", "jiu"],
+	["十", "shi"],
 	["年", "nian"],
 	["级", "ji"],
 	["上", "shang"],
@@ -53,6 +74,10 @@ export function slugifyTextbookId(value: string) {
 		const mapped = ChineseSlugMap.get(char);
 		if (mapped) {
 			tokens.push(mapped);
+			continue;
+		}
+		if (/\p{Script=Han}/u.test(char)) {
+			tokens.push(`u${char.codePointAt(0)?.toString(16) ?? "0"}`);
 			continue;
 		}
 		if (/[\s._-]/.test(char)) {
@@ -87,6 +112,39 @@ async function discoverPdfPaths(projectRoot: string) {
 		.sort((a, b) => a.localeCompare(b));
 }
 
+function uniqueTextbookInputs(inputs: TextbookPdfInput[]) {
+	const seen = new Set<string>();
+	const uniqueInputs: TextbookPdfInput[] = [];
+	for (const input of inputs) {
+		if (seen.has(input.pdfPath)) {
+			continue;
+		}
+		seen.add(input.pdfPath);
+		uniqueInputs.push(input);
+	}
+	return uniqueInputs.sort((a, b) => a.pdfPath.localeCompare(b.pdfPath));
+}
+
+function sourceToTextbookInput(projectRoot: string, source: PresentationSourceEntry): TextbookPdfInput {
+	return {
+		pdfPath: resolvePresentationSourcePath(projectRoot, source),
+		sourceId: source.id,
+		title: source.title,
+		publisher: source.publisher,
+		grade: source.grade,
+		volume: source.volume,
+	};
+}
+
+async function discoverTextbookInputs(projectRoot: string) {
+	const folderInputs = (await discoverPdfPaths(projectRoot)).map((pdfPath) => ({ pdfPath }));
+	const manifest = await readPresentationSourceManifest(projectRoot);
+	const manifestInputs = getEnabledPresentationSources(manifest, "textbook")
+		.filter((source) => source.path.toLowerCase().endsWith(".pdf"))
+		.map((source) => sourceToTextbookInput(projectRoot, source));
+	return uniqueTextbookInputs([...folderInputs, ...manifestInputs]);
+}
+
 function parseBookMetadata(pdfPath: string) {
 	const title = basename(pdfPath, extname(pdfPath));
 	return {
@@ -97,12 +155,58 @@ function parseBookMetadata(pdfPath: string) {
 	};
 }
 
+function toStoredPdfPath(projectRoot: string, pdfPath: string) {
+	const relativePath = relative(projectRoot, pdfPath);
+	if (!relativePath.startsWith("..") && !isAbsolute(relativePath)) {
+		return toPortablePath(relativePath);
+	}
+	return toPortablePath(pdfPath);
+}
+
 function unique(values: string[]) {
 	return [...new Set(values.filter(Boolean))];
 }
 
+function cleanLessonTitle(value: string) {
+	return value
+		.replace(/\s+/g, "")
+		.replace(/^[：:、，,]+|[：:、，,]+$/g, "")
+		.trim();
+}
+
+function normalizeTextLine(value: string) {
+	return value.replace(/\s+/g, " ").trim();
+}
+
+function parseTocUnitLine(line: string) {
+	const match = line.match(/^(第\s*\d+\s*单\s*元)\s+(.+?)\s*\/\s*(\d{1,3})$/);
+	if (!match) {
+		return undefined;
+	}
+	return {
+		unitTitle: `${cleanLessonTitle(match[1])} ${normalizeTextLine(match[2])}`,
+		printedPageNumber: Number.parseInt(match[3], 10),
+	};
+}
+
+function parseTocLessonLine(line: string) {
+	const match = line.match(/^(演唱(?:\/演奏)?|表演|听赏|律动|唱游|朗读|艺术[·•]实践)\s+(.+?)\s*\/\s*(\d{1,3})$/);
+	if (!match) {
+		return undefined;
+	}
+	return {
+		lessonTitle: cleanLessonTitle(match[2]),
+		printedPageNumber: Number.parseInt(match[3], 10),
+	};
+}
+
 function detectSongs(text: string) {
-	return unique([...text.matchAll(/《([^》]+)》/g)].map((match) => match[1].trim()));
+	const bracketedSongs = [...text.matchAll(/《([^》]+)》/g)].map((match) => cleanLessonTitle(match[1]));
+	const tocSongs = text
+		.split(/\r?\n/)
+		.map((line) => parseTocLessonLine(normalizeTextLine(line))?.lessonTitle)
+		.filter((title) => title !== undefined);
+	return unique([...bracketedSongs, ...tocSongs]);
 }
 
 function detectHeadings(text: string) {
@@ -120,10 +224,21 @@ function detectActivities(text: string) {
 		.filter((line) => /聆听|节奏|练习|活动|拍|唱|律动|创编/.test(line) && !line.includes("歌词"));
 }
 
+function detectPrintedPageNumber(text: string) {
+	const lines = text
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter(Boolean);
+	const candidate = [...lines].reverse().find((line) => /^\d{1,3}$/.test(line));
+	return candidate ? Number.parseInt(candidate, 10) : undefined;
+}
+
 function buildPageIndex(page: PdfTextPage): TextbookPageIndex {
 	const text = page.text.trim();
+	const printedPageNumber = detectPrintedPageNumber(text);
 	return {
 		pageNumber: page.pageNumber,
+		...(printedPageNumber === undefined ? {} : { printedPageNumber }),
 		text,
 		headings: detectHeadings(text),
 		detectedSongs: detectSongs(text),
@@ -134,18 +249,75 @@ function buildPageIndex(page: PdfTextPage): TextbookPageIndex {
 	};
 }
 
+function resolvePrintedPageNumber(
+	pageByPrintedNumber: Map<number, number>,
+	printedPageNumber: number,
+	fallback: number,
+) {
+	return pageByPrintedNumber.get(printedPageNumber) ?? fallback;
+}
+
+function buildPrintedPageNumberMap(pages: TextbookPageIndex[]) {
+	const pageByPrintedNumber = new Map<number, number>();
+	for (const page of pages) {
+		if (page.printedPageNumber !== undefined) {
+			pageByPrintedNumber.set(page.printedPageNumber, page.pageNumber);
+		}
+	}
+	return pageByPrintedNumber;
+}
+
 function buildLessonIndexes(bookId: string, pages: TextbookPageIndex[]): TextbookLessonIndex[] {
-	const lessonStarts = pages.flatMap((page) =>
+	const pageByPrintedNumber = buildPrintedPageNumberMap(pages);
+	const tocUnitStarts: Array<{ unitTitle: string; pageNumber: number }> = [];
+	const tocLessonStarts: Array<{ song: string; pageNumber: number; unitTitle?: string }> = [];
+	let currentUnitTitle: string | undefined;
+
+	for (const page of pages) {
+		for (const rawLine of page.text.split(/\r?\n/)) {
+			const line = normalizeTextLine(rawLine);
+			const unit = parseTocUnitLine(line);
+			if (unit) {
+				currentUnitTitle = unit.unitTitle;
+				tocUnitStarts.push({
+					unitTitle: unit.unitTitle,
+					pageNumber: resolvePrintedPageNumber(pageByPrintedNumber, unit.printedPageNumber, page.pageNumber),
+				});
+				continue;
+			}
+			const lesson = parseTocLessonLine(line);
+			if (lesson) {
+				tocLessonStarts.push({
+					song: lesson.lessonTitle,
+					pageNumber: resolvePrintedPageNumber(pageByPrintedNumber, lesson.printedPageNumber, page.pageNumber),
+					unitTitle: currentUnitTitle,
+				});
+			}
+		}
+	}
+
+	const quoteLessonStarts = pages.flatMap((page) =>
 		page.detectedSongs.map((song) => ({
 			song,
 			pageNumber: page.pageNumber,
 			unitTitle: page.headings.find((heading) => /单元/.test(heading)),
 		})),
 	);
+	const lessonStarts = tocLessonStarts.length > 0 ? tocLessonStarts : quoteLessonStarts;
 
 	return lessonStarts.map((lesson, index) => {
 		const nextLesson = lessonStarts[index + 1];
-		const pageEnd = nextLesson ? nextLesson.pageNumber - 1 : (pages.at(-1)?.pageNumber ?? lesson.pageNumber);
+		const nextUnit = tocUnitStarts.find(
+			(unit) => unit.pageNumber > lesson.pageNumber && unit.unitTitle !== lesson.unitTitle,
+		);
+		const pageEndCandidates = [nextLesson?.pageNumber, nextUnit?.pageNumber]
+			.filter((pageNumber) => pageNumber !== undefined)
+			.map((pageNumber) => pageNumber - 1)
+			.filter((pageNumber) => pageNumber >= lesson.pageNumber);
+		const pageEnd =
+			pageEndCandidates.length > 0
+				? Math.min(...pageEndCandidates)
+				: (pages.at(-1)?.pageNumber ?? lesson.pageNumber);
 		const lessonPages = pages.filter((page) => page.pageNumber >= lesson.pageNumber && page.pageNumber <= pageEnd);
 		return {
 			lessonId: `${bookId}-${slugifyTextbookId(lesson.song)}`,
@@ -169,7 +341,9 @@ export async function indexTextbooks(
 	options: TextbookIndexOptions = {},
 ): Promise<TextbookIndexResult> {
 	const paths = getPresentationProjectPaths(projectRoot);
-	const pdfPaths = (options.pdfPaths ?? (await discoverPdfPaths(projectRoot))).sort((a, b) => a.localeCompare(b));
+	const pdfInputs = options.pdfPaths
+		? uniqueTextbookInputs(options.pdfPaths.map((pdfPath) => ({ pdfPath })))
+		: await discoverTextbookInputs(projectRoot);
 	const existingIndex = await readExistingIndex(paths.textbookIndex);
 	const existingBooks = new Map(existingIndex?.books.map((book) => [book.bookId, book]));
 	const indexPagesRoot = join(paths.presentationRoot, "index", "pages");
@@ -182,10 +356,11 @@ export async function indexTextbooks(
 	const skippedBookIds: string[] = [];
 	const extractor = options.extractPdfText ?? extractPdfTextPages;
 
-	for (const pdfPath of pdfPaths) {
-		const metadata = parseBookMetadata(pdfPath);
-		const bookId = slugifyTextbookId(metadata.title);
-		const fileHash = await hashFile(pdfPath);
+	for (const input of pdfInputs) {
+		const metadata = parseBookMetadata(input.pdfPath);
+		const title = input.title ?? metadata.title;
+		const bookId = slugifyTextbookId(title);
+		const fileHash = await hashFile(input.pdfPath);
 		const pagesIndexPath = `index/pages/${bookId}.pages.json`;
 		const unitsIndexPath = `index/units/${bookId}.units.json`;
 		const existingBook = existingBooks.get(bookId);
@@ -196,19 +371,20 @@ export async function indexTextbooks(
 			continue;
 		}
 
-		const pages = (await extractor(pdfPath)).map(buildPageIndex);
+		const pages = (await extractor(input.pdfPath)).map(buildPageIndex);
 		const lessons = buildLessonIndexes(bookId, pages);
 		await writeJson(join(paths.presentationRoot, pagesIndexPath), pages);
 		await writeJson(join(paths.presentationRoot, unitsIndexPath), lessons);
 
 		books.push({
 			bookId,
-			title: metadata.title,
+			title,
 			subject: "music",
-			publisher: metadata.publisher,
-			grade: metadata.grade,
-			volume: metadata.volume,
-			filePath: toPortablePath(relative(projectRoot, pdfPath)),
+			sourceId: input.sourceId,
+			publisher: input.publisher ?? metadata.publisher,
+			grade: input.grade ?? metadata.grade,
+			volume: input.volume ?? metadata.volume,
+			filePath: toStoredPdfPath(projectRoot, input.pdfPath),
 			fileHash,
 			pageCount: pages.length,
 			unitsIndexPath,

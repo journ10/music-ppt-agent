@@ -10,7 +10,9 @@ export type PresentationProjectPaths = {
 	primaryMusicCurriculum: string;
 	teachingGuidance: string;
 	learnedRequirements: string;
+	sourceManifest: string;
 	textbookIndex: string;
+	guidanceIndex: string;
 	textbookPlaceholder: string;
 };
 
@@ -22,7 +24,9 @@ export function getPresentationProjectPaths(projectRoot: string): PresentationPr
 		primaryMusicCurriculum: join(presentationRoot, "curriculum", "primary-music-curriculum.md"),
 		teachingGuidance: join(presentationRoot, "curriculum", "teaching-guidance.md"),
 		learnedRequirements: join(presentationRoot, "memory", "learned-requirements.md"),
+		sourceManifest: join(presentationRoot, "sources.json"),
 		textbookIndex: join(presentationRoot, "index", "textbooks.index.json"),
+		guidanceIndex: join(presentationRoot, "index", "guidance.index.json"),
 		textbookPlaceholder: join(presentationRoot, "textbooks", "put-textbook-pdfs-here.md"),
 	};
 }

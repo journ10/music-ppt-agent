@@ -5,6 +5,8 @@ import {
 	buildMusicLessonContext,
 	indexTextbooks,
 	initializePresentationProject,
+	rebuildGuidanceIndex,
+	writePresentationSourceManifest,
 } from "@earendil-works/pi-presentation";
 import { afterEach, describe, expect, it } from "vitest";
 import { minimalPdfFixture } from "../fixtures/binary-fixtures.ts";
@@ -40,6 +42,13 @@ describe("buildMusicLessonContext", () => {
 			join(projectRoot, ".pi", "presentation", "textbooks", "人音版-三年级上册.pdf"),
 			minimalPdfFixture(["# 第2单元\n《小雨沙沙》\n歌词", "节奏练习"]),
 		);
+		const guidancePath = join(projectRoot, "guidance.pdf");
+		await writeFile(guidancePath, minimalPdfFixture(["音乐课堂重视聆听、情感体验和小组合作。"]));
+		await writePresentationSourceManifest(projectRoot, {
+			version: 1,
+			sources: [{ id: "guidance", kind: "guidance", path: guidancePath, title: "指导思想" }],
+		});
+		await rebuildGuidanceIndex(projectRoot);
 		await indexTextbooks(projectRoot);
 
 		const context = await buildMusicLessonContext(projectRoot, "做三年级上册《小雨沙沙》的教学PPT");
@@ -48,6 +57,7 @@ describe("buildMusicLessonContext", () => {
 		expect(context.pptRequirements).toBe("# Custom PPT\n短文字\n");
 		expect(context.learnedRequirements).toBe("# Learned\n偏好蓝色\n");
 		expect(context.curriculum.combinedMarkdown).toContain("课堂律动");
+		expect(context.guidance.sources[0]).toMatchObject({ sourceId: "guidance", status: "indexed" });
 		expect(context.resolution.matches).toHaveLength(1);
 		expect(context.selectedPages.map((page) => page.pageNumber)).toEqual([1, 2]);
 		expect(context.sourcePdfPageRefs).toEqual([

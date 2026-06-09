@@ -1,7 +1,14 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { generateMusicDeck, indexTextbooks, initializePresentationProject } from "@earendil-works/pi-presentation";
+import {
+	generateMusicDeck,
+	indexTextbooks,
+	initializePresentationProject,
+	planMusicDeck,
+	rebuildGuidanceIndex,
+	writePresentationSourceManifest,
+} from "@earendil-works/pi-presentation";
 import { afterEach, describe, expect, it } from "vitest";
 import { minimalPdfFixture, tinyMp3Fixture, tinyMp4Fixture, tinyPngFixture } from "../fixtures/binary-fixtures.ts";
 
@@ -30,6 +37,46 @@ afterEach(async () => {
 });
 
 describe("generateMusicDeck", () => {
+	it("plans a golden lesson case with full context and storyboard artifacts", async () => {
+		const projectRoot = await mkdtemp(join(tmpdir(), "pi-e2e-warm-home-plan-"));
+		tempDirs.push(projectRoot);
+		await initializePresentationProject(projectRoot);
+		const guidancePath = join(projectRoot, "guidance.pdf");
+		await writeFile(guidancePath, minimalPdfFixture(["音乐课堂重视聆听、情感体验、小组合作和实践活动。"]));
+		await writePresentationSourceManifest(projectRoot, {
+			version: 1,
+			sources: [{ id: "guidance", kind: "guidance", path: guidancePath, title: "指导思想" }],
+		});
+		await writeFile(
+			join(projectRoot, ".pi", "presentation", "textbooks", "粤教版-一年级下册.pdf"),
+			minimalPdfFixture([
+				"目录\n第5单元 幸福的一家 / 31\n演唱 温暖的家 / 33",
+				"幸福的一家\n31",
+				"温暖的家\n想想：你能为家人做些什么事情来表达自己的爱呢？\n33",
+			]),
+		);
+		await rebuildGuidanceIndex(projectRoot);
+		await indexTextbooks(projectRoot);
+
+		const result = await planMusicDeck(projectRoot, "做一年级下册《温暖的家》的教学PPT", {
+			projectId: "golden-warm-home",
+		});
+
+		expect(result.context.request).toMatchObject({ title: "温暖的家", grade: "一年级", volume: "下册" });
+		expect(result.context.sourcePdfPageRefs.map((ref) => ref.pageNumber)).toEqual([3]);
+		expect(result.context.guidance.sources[0].constraints.length).toBeGreaterThan(0);
+		expect(result.storyboard.lessonTitle).toBe("温暖的家");
+		expect(result.storyboard.slides.map((slide) => slide.title).join("\n")).not.toContain("小雨");
+		expect(result.storyboard.slides.flatMap((slide) => slide.assets)).toContainEqual({
+			assetId: "yue-jiao-ban-yi-nian-ji-xia-ce-page-3",
+			kind: "textbook-page",
+			role: "main",
+		});
+		expect(await readFile(result.files.lessonContextPath, "utf-8")).toContain('"title": "温暖的家"');
+		expect(await readFile(result.files.storyboardPath, "utf-8")).toContain('"lessonTitle": "温暖的家"');
+		expect(await readFile(result.files.planReportPath, "utf-8")).toContain("Storyboard 页数：12");
+	});
+
 	it("resolves one indexed lesson, writes a deck, embeds audio/video, and passes audit", async () => {
 		const { projectRoot, audioPath, videoPath, posterPath } = await createFixtureProject();
 

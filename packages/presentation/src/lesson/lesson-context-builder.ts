@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { type CurriculumContext, loadCurriculumContext } from "../curriculum/curriculum-loader.ts";
+import { type GuidanceIndex, loadGuidanceIndex } from "../curriculum/guidance-extractor.ts";
 import { getPresentationProjectPaths } from "../project/presentation-config.ts";
 import { resolveTextbookLesson } from "../textbooks/textbook-resolver.ts";
 import type { TextbookLessonResolution, TextbookPageIndex } from "../textbooks/textbook-types.ts";
@@ -16,6 +17,7 @@ export type MusicLessonContext = {
 	pptRequirements: string;
 	learnedRequirements: string;
 	curriculum: CurriculumContext;
+	guidance: GuidanceIndex;
 	resolution: TextbookLessonResolution;
 	selectedPages: TextbookPageIndex[];
 	sourcePdfPageRefs: SourcePdfPageRef[];
@@ -28,10 +30,11 @@ async function readText(path: string) {
 export async function buildMusicLessonContext(projectRoot: string, rawRequest: string): Promise<MusicLessonContext> {
 	const paths = getPresentationProjectPaths(projectRoot);
 	const request = normalizeMusicLessonRequest(rawRequest);
-	const [pptRequirements, learnedRequirements, curriculum, resolution] = await Promise.all([
+	const [pptRequirements, learnedRequirements, curriculum, guidance, resolution] = await Promise.all([
 		readText(paths.pptRequirements),
 		readText(paths.learnedRequirements),
 		loadCurriculumContext(projectRoot),
+		loadGuidanceIndex(projectRoot),
 		resolveTextbookLesson(projectRoot, request),
 	]);
 
@@ -41,6 +44,7 @@ export async function buildMusicLessonContext(projectRoot: string, rawRequest: s
 			pptRequirements,
 			learnedRequirements,
 			curriculum,
+			guidance,
 			resolution,
 			selectedPages: [],
 			sourcePdfPageRefs: [],
@@ -58,6 +62,7 @@ export async function buildMusicLessonContext(projectRoot: string, rawRequest: s
 		pptRequirements,
 		learnedRequirements,
 		curriculum,
+		guidance,
 		resolution,
 		selectedPages,
 		sourcePdfPageRefs: selectedPages.map((page) => ({ bookId: match.bookId, pageNumber: page.pageNumber })),

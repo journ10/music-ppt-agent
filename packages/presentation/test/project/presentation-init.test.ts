@@ -4,6 +4,8 @@ import { join } from "node:path";
 import {
 	DEFAULT_LEARNED_REQUIREMENTS,
 	DEFAULT_PPT_REQUIREMENTS,
+	EMPTY_GUIDANCE_INDEX,
+	EMPTY_PRESENTATION_SOURCE_MANIFEST,
 	initializePresentationProject,
 } from "@earendil-works/pi-presentation";
 import { afterEach, describe, expect, it } from "vitest";
@@ -35,8 +37,10 @@ describe("initializePresentationProject", () => {
 			"PPT.md",
 			"curriculum/primary-music-curriculum.md",
 			"curriculum/teaching-guidance.md",
+			"index/guidance.index.json",
 			"index/textbooks.index.json",
 			"memory/learned-requirements.md",
+			"sources.json",
 			"textbooks/put-textbook-pdfs-here.md",
 		]);
 		expect(result.createdDirectories.sort()).toEqual([
@@ -61,6 +65,10 @@ describe("initializePresentationProject", () => {
 			books: [],
 			generatedAt: "1970-01-01T00:00:00.000Z",
 		});
+		expect(JSON.parse(await readProjectFile(projectRoot, "index/guidance.index.json"))).toEqual(EMPTY_GUIDANCE_INDEX);
+		expect(JSON.parse(await readProjectFile(projectRoot, "sources.json"))).toEqual(
+			EMPTY_PRESENTATION_SOURCE_MANIFEST,
+		);
 	});
 
 	it("is idempotent and does not overwrite existing user requirements", async () => {
