@@ -5,6 +5,7 @@ import {
 	indexTextbooks,
 	initializePresentationProject,
 	readPresentationSourceManifest,
+	writePptxPackage,
 	writePresentationSourceManifest,
 } from "@earendil-works/pi-presentation";
 import { afterEach, describe, expect, it } from "vitest";
@@ -404,6 +405,50 @@ describe("runMusicPptCli", () => {
 		expect(await readFile(join(outputDir, "review-report.md"), "utf-8")).toBe("# Review\n");
 	});
 
+	it("audits a PPTX package from the standalone CLI", async () => {
+		const projectRoot = await createTempProject("pi-music-ppt-cli-audit-");
+		await initializePresentationProject(projectRoot);
+		const pptxPath = join(projectRoot, "lesson.pptx");
+		const outputDir = join(projectRoot, "audit");
+		await writeFile(
+			pptxPath,
+			writePptxPackage({
+				lessonTitle: "温暖的家",
+				slides: [
+					{
+						slideId: "slide-01",
+						title: "温暖的家",
+						studentVisibleText: ["听一听"],
+						teacherNotes: "Notes",
+						layout: "cover",
+						assets: [],
+						media: [],
+					},
+				],
+			}),
+		);
+		const output = createOutputCollector();
+
+		const exitCode = await runMusicPptCli(
+			["audit", pptxPath, "--root", projectRoot, "--out", outputDir, "--expected-slides", "1"],
+			{
+				cwd: "/tmp",
+				stdout: output.writeLine,
+				stderr: output.writeLine,
+			},
+		);
+
+		expect(exitCode).toBe(0);
+		expect(output.lines.join("\n")).toContain("PPTX audit errors: 0");
+		expect(output.lines.join("\n")).toContain(`PPTX audit report: ${join(outputDir, "audit-report.md")}`);
+		expect(await readFile(join(outputDir, "audit-report.md"), "utf-8")).toContain("Zip valid: yes");
+		expect(JSON.parse(await readFile(join(outputDir, "audit-report.json"), "utf-8"))).toMatchObject({
+			zipValid: true,
+			slideCount: 1,
+			errors: [],
+		});
+	});
+
 	it("can run visual review immediately after PPTX export", async () => {
 		const projectRoot = await createTempProject("pi-music-ppt-cli-pptx-review-");
 		await initializePresentationProject(projectRoot);
@@ -479,5 +524,79 @@ describe("runMusicPptCli", () => {
 		expect(reviewedPptxPath).toBe(exportedPath);
 		expect(output.lines.join("\n")).toContain(`Exported PPTX ${exportedPath}`);
 		expect(output.lines.join("\n")).toContain("Review contact sheet:");
+	});
+
+	it("can audit immediately after PPTX export", async () => {
+		const projectRoot = await createTempProject("pi-music-ppt-cli-pptx-audit-");
+		await initializePresentationProject(projectRoot);
+		await writeFile(
+			join(projectRoot, ".pi", "presentation", "textbooks", "粤教版-一年级下册.pdf"),
+			minimalPdfFixture([
+				"目录\n第5单元 幸福的一家 / 31\n演唱 温暖的家 / 33",
+				"幸福的一家\n31",
+				"温暖的家\n想想：你能为家人做些什么事情来表达自己的爱呢？\n33",
+			]),
+		);
+		await indexTextbooks(projectRoot);
+		const output = createOutputCollector();
+		const exportedPath = join(projectRoot, "audited.pptx");
+
+		const exitCode = await runMusicPptCli(
+			[
+				"pptx",
+				"做一年级下册《温暖的家》的教学PPT",
+				"--root",
+				projectRoot,
+				"--project-id",
+				"audited-pptx",
+				"--output",
+				exportedPath,
+				"--audit",
+				"--expected-slides",
+				"1",
+			],
+			{
+				cwd: "/tmp",
+				stdout: output.writeLine,
+				stderr: output.writeLine,
+				renderPdfPage: async (options) => {
+					await writeFile(options.outputPath, tinyPngFixture());
+					return {
+						outputPath: options.outputPath,
+						widthPx: 1600,
+						heightPx: 2263,
+					};
+				},
+				exportSvgProject: async (options) => {
+					const outputPath = options.outputPath ?? exportedPath;
+					await writeFile(
+						outputPath,
+						writePptxPackage({
+							lessonTitle: "温暖的家",
+							slides: [
+								{
+									slideId: "slide-01",
+									title: "温暖的家",
+									studentVisibleText: ["听一听"],
+									teacherNotes: "Notes",
+									layout: "cover",
+									assets: [],
+									media: [],
+								},
+							],
+						}),
+					);
+					return {
+						projectDir: options.projectDir,
+						outputPath,
+						scriptPath: "fake-svg-to-pptx.py",
+					};
+				},
+			},
+		);
+
+		expect(exitCode).toBe(0);
+		expect(output.lines.join("\n")).toContain("PPTX audit errors: 0");
+		expect(output.lines.join("\n")).toContain("audit-report.md");
 	});
 });

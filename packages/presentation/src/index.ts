@@ -93,6 +93,8 @@ export type { PptxMediaAuditItem } from "./qa/media-audit.ts";
 export { auditMediaParts } from "./qa/media-audit.ts";
 export type { PptxAuditOptions, PptxAuditReport } from "./qa/pptx-audit.ts";
 export { auditPptxPackage, formatPptxAuditMarkdown } from "./qa/pptx-audit.ts";
+export type { AuditPptxFileOptions, AuditPptxFileResult } from "./qa/pptx-audit-file.ts";
+export { auditPptxFile } from "./qa/pptx-audit-file.ts";
 export type {
 	PptxReviewCommandRunner,
 	PptxReviewRenderer,

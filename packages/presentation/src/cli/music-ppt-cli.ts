@@ -13,6 +13,7 @@ import {
 	type PresentationSourceVolume,
 	readPresentationSourceManifest,
 } from "../project/source-manifest.ts";
+import { auditPptxFile } from "../qa/pptx-audit-file.ts";
 import { type PptxReviewRenderer, renderPptxReview } from "../qa/pptx-review-renderer.ts";
 import { resolveVisualQaToolPaths } from "../qa/visual-qa-tools.ts";
 import { renderAndExportMusicDeck, type SvgPptxExporter } from "../svg/svg-pptx-exporter.ts";
@@ -38,13 +39,28 @@ type ParsedCliArgs = {
 	projectId?: string;
 	outputPath?: string;
 	reviewOutputDir?: string;
+	auditOutputDir?: string;
+	expectedSlideCount?: number;
 	svgToPptxScript?: string;
 	pythonPath?: string;
+	auditAfterExport: boolean;
 	reviewAfterExport: boolean;
 	showHelp: boolean;
 };
 
-const COMMANDS = new Set(["init", "sources", "guidance", "index", "config", "doctor", "review", "plan", "svg", "pptx"]);
+const COMMANDS = new Set([
+	"init",
+	"sources",
+	"guidance",
+	"index",
+	"config",
+	"doctor",
+	"audit",
+	"review",
+	"plan",
+	"svg",
+	"pptx",
+]);
 const COMMAND_OPTION_FLAGS = new Set(["--id", "--title", "--role", "--publisher", "--grade", "--volume"]);
 
 const HELP_TEXT = `music-ppt - primary music teacher PPT generator
@@ -58,10 +74,11 @@ Usage:
   music-ppt config show [--root <dir>]
   music-ppt config set ppt-master <svg_to_pptx.py> [--root <dir>] [--python <python>]
   music-ppt doctor [--root <dir>]
+  music-ppt audit <pptx> [--root <dir>] [--out <dir>] [--expected-slides <n>]
   music-ppt review <pptx> [--root <dir>] [--out <dir>]
   music-ppt plan <lesson request> [--root <dir>] [--project-id <id>]
   music-ppt svg <lesson request> [--root <dir>] [--project-id <id>]
-  music-ppt pptx <lesson request> [--root <dir>] [--project-id <id>] [--output <file>] [--svg-to-pptx-script <file>] [--review]
+  music-ppt pptx <lesson request> [--root <dir>] [--project-id <id>] [--output <file>] [--svg-to-pptx-script <file>] [--audit] [--review]
   music-ppt <lesson request> [--root <dir>] [--project-id <id>] [--output <file>]
 
 Environment:
@@ -98,8 +115,11 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 	let projectId: string | undefined;
 	let outputPath: string | undefined;
 	let reviewOutputDir: string | undefined;
+	let auditOutputDir: string | undefined;
+	let expectedSlideCount: number | undefined;
 	let svgToPptxScript: string | undefined;
 	let pythonPath: string | undefined;
+	let auditAfterExport = false;
 	let reviewAfterExport = false;
 	let showHelp = false;
 
@@ -126,6 +146,12 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 		}
 		if (arg === "--out") {
 			reviewOutputDir = resolve(cwd, nextValue(argv, index, arg));
+			auditOutputDir = reviewOutputDir;
+			index += 1;
+			continue;
+		}
+		if (arg === "--expected-slides") {
+			expectedSlideCount = Number.parseInt(nextValue(argv, index, arg), 10);
 			index += 1;
 			continue;
 		}
@@ -141,6 +167,10 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 		}
 		if (arg === "--review") {
 			reviewAfterExport = true;
+			continue;
+		}
+		if (arg === "--audit") {
+			auditAfterExport = true;
 			continue;
 		}
 		if (COMMAND_OPTION_FLAGS.has(arg)) {
@@ -162,8 +192,11 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 			projectId,
 			outputPath,
 			reviewOutputDir,
+			auditOutputDir,
+			expectedSlideCount,
 			svgToPptxScript,
 			pythonPath,
+			auditAfterExport,
 			reviewAfterExport,
 			showHelp: true,
 		};
@@ -178,8 +211,11 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 			projectId,
 			outputPath,
 			reviewOutputDir,
+			auditOutputDir,
+			expectedSlideCount,
 			svgToPptxScript,
 			pythonPath,
+			auditAfterExport,
 			reviewAfterExport,
 			showHelp,
 		};
@@ -192,8 +228,11 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 		projectId,
 		outputPath,
 		reviewOutputDir,
+		auditOutputDir,
+		expectedSlideCount,
 		svgToPptxScript,
 		pythonPath,
+		auditAfterExport,
 		reviewAfterExport,
 		showHelp,
 	};
@@ -436,6 +475,28 @@ async function runReviewCommand(parsed: ParsedCliArgs, options: MusicPptCliOptio
 	await runReviewForPptx(parsed.projectRoot, pptxPath, parsed.reviewOutputDir, options, stdout);
 }
 
+async function runAuditCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
+	await ensurePresentationInitialized(parsed.projectRoot);
+	const pptxPath = resolve(parsed.projectRoot, requestFromArgs(parsed.commandArgs));
+	await runAuditForPptx(pptxPath, parsed.auditOutputDir, parsed.expectedSlideCount, stdout);
+}
+
+async function runAuditForPptx(
+	pptxPath: string,
+	auditOutputDir: string | undefined,
+	expectedSlideCount: number | undefined,
+	stdout: OutputWriter,
+) {
+	const outputDir = auditOutputDir ?? join(dirname(pptxPath), `${basename(pptxPath)}.audit`);
+	const result = await auditPptxFile({
+		pptxPath,
+		outputDir,
+		expectedSlideCount,
+	});
+	stdout(`PPTX audit errors: ${result.report.errors.length}`);
+	stdout(`PPTX audit report: ${result.reportMarkdownPath}`);
+}
+
 async function runReviewForPptx(
 	projectRoot: string,
 	pptxPath: string,
@@ -489,6 +550,14 @@ async function runPptxCommand(parsed: ParsedCliArgs, options: MusicPptCliOptions
 	});
 	stdout(`Exported PPTX ${result.pptxExport.outputPath}`);
 	stdout(`SVG QA errors: ${result.audit.errors.length}, warnings: ${result.audit.warnings.length}`);
+	if (parsed.auditAfterExport) {
+		await runAuditForPptx(
+			result.pptxExport.outputPath,
+			parsed.auditOutputDir,
+			parsed.expectedSlideCount ?? result.plan.storyboard.slides.length,
+			stdout,
+		);
+	}
 	if (parsed.reviewAfterExport) {
 		await runReviewForPptx(parsed.projectRoot, result.pptxExport.outputPath, parsed.reviewOutputDir, options, stdout);
 	}
@@ -527,6 +596,10 @@ export async function runMusicPptCli(argv: string[], options: MusicPptCliOptions
 		}
 		if (parsed.command === "doctor") {
 			await runDoctorCommand(parsed, stdout);
+			return 0;
+		}
+		if (parsed.command === "audit") {
+			await runAuditCommand(parsed, stdout);
 			return 0;
 		}
 		if (parsed.command === "review") {
