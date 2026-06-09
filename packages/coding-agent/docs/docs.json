@@ -65,6 +65,10 @@
           "path": "packages.md"
         },
         {
+          "title": "Presentation Generation",
+          "path": "presentation.md"
+        },
+        {
           "title": "Custom Models",
           "path": "models.md"
         },
