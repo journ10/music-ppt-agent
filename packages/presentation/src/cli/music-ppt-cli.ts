@@ -45,6 +45,7 @@ type ParsedCliArgs = {
 	pythonPath?: string;
 	auditAfterExport: boolean;
 	reviewAfterExport: boolean;
+	rebuildBeforeExport: boolean;
 	showHelp: boolean;
 };
 
@@ -78,8 +79,8 @@ Usage:
   music-ppt review <pptx> [--root <dir>] [--out <dir>]
   music-ppt plan <lesson request> [--root <dir>] [--project-id <id>]
   music-ppt svg <lesson request> [--root <dir>] [--project-id <id>]
-  music-ppt pptx <lesson request> [--root <dir>] [--project-id <id>] [--output <file>] [--svg-to-pptx-script <file>] [--audit] [--review]
-  music-ppt <lesson request> [--root <dir>] [--project-id <id>] [--output <file>]
+  music-ppt pptx <lesson request> [--root <dir>] [--project-id <id>] [--output <file>] [--svg-to-pptx-script <file>] [--rebuild] [--audit] [--review]
+  music-ppt <lesson request> [--root <dir>] [--project-id <id>] [--output <file>] [--rebuild] [--audit] [--review]
 
 Environment:
   PI_PRESENTATION_SVG_TO_PPTX_SCRIPT  PPT Master svg_to_pptx.py path
@@ -121,6 +122,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 	let pythonPath: string | undefined;
 	let auditAfterExport = false;
 	let reviewAfterExport = false;
+	let rebuildBeforeExport = false;
 	let showHelp = false;
 
 	for (let index = 0; index < argv.length; index += 1) {
@@ -173,6 +175,10 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 			auditAfterExport = true;
 			continue;
 		}
+		if (arg === "--rebuild") {
+			rebuildBeforeExport = true;
+			continue;
+		}
 		if (COMMAND_OPTION_FLAGS.has(arg)) {
 			commandArgs.push(arg, nextValue(argv, index, arg));
 			index += 1;
@@ -198,6 +204,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 			pythonPath,
 			auditAfterExport,
 			reviewAfterExport,
+			rebuildBeforeExport,
 			showHelp: true,
 		};
 	}
@@ -217,6 +224,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 			pythonPath,
 			auditAfterExport,
 			reviewAfterExport,
+			rebuildBeforeExport,
 			showHelp,
 		};
 	}
@@ -234,6 +242,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 		pythonPath,
 		auditAfterExport,
 		reviewAfterExport,
+		rebuildBeforeExport,
 		showHelp,
 	};
 }
@@ -540,6 +549,12 @@ async function runSvgCommand(parsed: ParsedCliArgs, options: MusicPptCliOptions,
 
 async function runPptxCommand(parsed: ParsedCliArgs, options: MusicPptCliOptions, stdout: OutputWriter) {
 	await ensurePresentationInitialized(parsed.projectRoot);
+	if (parsed.rebuildBeforeExport) {
+		const guidanceIndex = await rebuildGuidanceIndex(parsed.projectRoot);
+		stdout(formatGuidanceStatus(guidanceIndex));
+		const textbookIndex = await indexTextbooks(parsed.projectRoot);
+		stdout(`Indexed ${textbookIndex.indexedBookIds.length}, skipped ${textbookIndex.skippedBookIds.length}`);
+	}
 	const result = await renderAndExportMusicDeck(parsed.projectRoot, requestFromArgs(parsed.commandArgs), {
 		projectId: parsed.projectId,
 		outputPath: parsed.outputPath,

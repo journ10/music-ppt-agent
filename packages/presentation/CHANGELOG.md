@@ -20,6 +20,7 @@ All notable changes to this package will be documented in this file.
 - Added `music-ppt audit` and `music-ppt pptx --audit` for PPTX package QA reports.
 - Added automatic visual QA tool discovery for common macOS LibreOffice and Poppler install paths.
 - Added `music-ppt sources add` for registering guidance, textbook, media, and reference sources without editing JSON.
+- Added `music-ppt pptx --rebuild` to refresh guidance and textbook indexes before exporting a deck.
 
 ### Changed
 

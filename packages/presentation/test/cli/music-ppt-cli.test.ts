@@ -245,6 +245,85 @@ describe("runMusicPptCli", () => {
 		expect(await readFile(exportedPath, "utf-8")).toBe("fake pptx");
 	});
 
+	it("rebuilds guidance and textbook indexes before PPTX export when requested", async () => {
+		const projectRoot = await createTempProject("pi-music-ppt-cli-rebuild-pptx-");
+		await initializePresentationProject(projectRoot);
+		const guidancePath = join(projectRoot, "guidance.pdf");
+		const textbookPath = join(projectRoot, "粤教版-一年级下册.pdf");
+		await writeFile(guidancePath, minimalPdfFixture(["音乐课堂重视聆听、情感体验、小组合作和实践活动。"]));
+		await writeFile(
+			textbookPath,
+			minimalPdfFixture([
+				"目录\n第5单元 幸福的一家 / 31\n演唱 温暖的家 / 33",
+				"幸福的一家\n31",
+				"温暖的家\n想想：你能为家人做些什么事情来表达自己的爱呢？\n33",
+			]),
+		);
+		await writePresentationSourceManifest(projectRoot, {
+			version: 1,
+			sources: [
+				{ id: "guidance", kind: "guidance", path: guidancePath, title: "指导思想" },
+				{
+					id: "yue-grade1-volume2",
+					kind: "textbook",
+					path: textbookPath,
+					title: "粤教版一年级下册",
+					subject: "music",
+					publisher: "粤教版",
+					grade: "一年级",
+					volume: "下册",
+				},
+			],
+		});
+		const output = createOutputCollector();
+		const exportedPath = join(projectRoot, "rebuilt.pptx");
+
+		const exitCode = await runMusicPptCli(
+			[
+				"pptx",
+				"做一年级下册《温暖的家》的教学PPT",
+				"--root",
+				projectRoot,
+				"--project-id",
+				"rebuilt-pptx",
+				"--output",
+				exportedPath,
+				"--rebuild",
+			],
+			{
+				cwd: "/tmp",
+				stdout: output.writeLine,
+				stderr: output.writeLine,
+				renderPdfPage: async (options) => {
+					await writeFile(options.outputPath, tinyPngFixture());
+					return {
+						outputPath: options.outputPath,
+						widthPx: 1600,
+						heightPx: 2263,
+					};
+				},
+				exportSvgProject: async (options) => {
+					const outputPath = options.outputPath ?? exportedPath;
+					await writeFile(outputPath, "fake pptx", "utf-8");
+					return {
+						projectDir: options.projectDir,
+						outputPath,
+						scriptPath: "fake-svg-to-pptx.py",
+					};
+				},
+			},
+		);
+		const guidanceLine = output.lines.findIndex((line) => line.includes("Guidance index: 1/1 sources indexed"));
+		const textbookLine = output.lines.indexOf("Indexed 1, skipped 0");
+		const exportLine = output.lines.indexOf(`Exported PPTX ${exportedPath}`);
+
+		expect(exitCode).toBe(0);
+		expect(guidanceLine).toBeGreaterThanOrEqual(0);
+		expect(textbookLine).toBeGreaterThan(guidanceLine);
+		expect(exportLine).toBeGreaterThan(textbookLine);
+		expect(await readFile(exportedPath, "utf-8")).toBe("fake pptx");
+	});
+
 	it("rebuilds guidance from source manifest and inspects indexed lessons", async () => {
 		const projectRoot = await createTempProject("pi-music-ppt-cli-index-");
 		await initializePresentationProject(projectRoot);
