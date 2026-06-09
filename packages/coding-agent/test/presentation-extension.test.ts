@@ -28,15 +28,25 @@ describe("built-in presentation extension", () => {
 		const presentation = extensions.find((extension) => extension.path === "<builtin:presentation>");
 
 		expect(presentation).toBeDefined();
-		expect([...presentation!.commands.keys()].sort()).toEqual(["music-ppt", "ppt-index", "ppt-init"]);
+		expect([...presentation!.commands.keys()].sort()).toEqual([
+			"music-ppt",
+			"ppt-guidance",
+			"ppt-index",
+			"ppt-init",
+			"ppt-sources",
+		]);
 		expect([...presentation!.tools.keys()].sort()).toEqual([
 			"presentation_audit_pptx",
 			"presentation_generate_music_deck",
+			"presentation_guidance_rebuild",
+			"presentation_guidance_status",
 			"presentation_index_rebuild",
 			"presentation_index_status",
 			"presentation_init",
+			"presentation_plan_music_deck",
 			"presentation_remember_requirement",
 			"presentation_resolve_lesson",
+			"presentation_sources_status",
 		]);
 	});
 

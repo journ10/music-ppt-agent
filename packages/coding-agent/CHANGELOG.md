@@ -5,6 +5,8 @@
 ### Added
 
 - Added a `project_trust` extension event so global and CLI extensions can decide or defer project trust during startup and runtime cwd switches.
+- Added presentation source and guidance index commands/tools for primary music PPT generation.
+- Added presentation planning command/tool output for lesson context and storyboard artifacts.
 - Added project trust gating for project-local settings, resources, instructions, and packages ([#5332](https://github.com/earendil-works/pi/pull/5332)).
 - Added the latest prompt cache hit rate to the interactive footer.
 - Exported RPC extension UI request and response types from the public API ([#5455](https://github.com/earendil-works/pi/issues/5455)).

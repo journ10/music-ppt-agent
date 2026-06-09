@@ -6,7 +6,11 @@ import {
 	generateMusicDeck,
 	indexTextbooks,
 	initializePresentationProject,
+	loadGuidanceIndex,
 	normalizeMusicLessonRequest,
+	planMusicDeck,
+	readPresentationSourceManifest,
+	rebuildGuidanceIndex,
 	resolveTextbookLesson,
 } from "@earendil-works/pi-presentation";
 import { Type } from "typebox";
@@ -47,12 +51,51 @@ async function ensurePresentationInitialized(projectRoot: string) {
 	}
 }
 
+function formatSourceManifestStatus(manifest: Awaited<ReturnType<typeof readPresentationSourceManifest>>) {
+	const counts = new Map<string, number>();
+	for (const source of manifest.sources.filter((item) => item.enabled !== false)) {
+		counts.set(source.kind, (counts.get(source.kind) ?? 0) + 1);
+	}
+	const summary = [...counts.entries()].map(([kind, count]) => `${kind}: ${count}`).join(", ") || "empty";
+	return `Presentation sources: ${summary}`;
+}
+
+function formatGuidanceStatus(index: Awaited<ReturnType<typeof loadGuidanceIndex>>) {
+	const indexed = index.sources.filter((source) => source.status === "indexed").length;
+	const constraints = index.sources.reduce((total, source) => total + source.constraints.length, 0);
+	return `Guidance index: ${indexed}/${index.sources.length} sources indexed, ${constraints} constraints`;
+}
+
 export default function presentationExtension(pi: ExtensionAPI) {
 	pi.registerCommand("ppt-init", {
 		description: "Initialize .pi/presentation for music PPT generation",
 		handler: async (_args, ctx) => {
 			const result = await initializePresentationProject(ctx.cwd);
 			ctx.ui.notify(`Presentation initialized: ${result.presentationRoot}`, "info");
+		},
+	});
+
+	pi.registerCommand("ppt-sources", {
+		description: "Inspect presentation source manifest",
+		handler: async (_args, ctx) => {
+			await ensurePresentationInitialized(ctx.cwd);
+			const manifest = await readPresentationSourceManifest(ctx.cwd);
+			ctx.ui.notify(formatSourceManifestStatus(manifest), "info");
+		},
+	});
+
+	pi.registerCommand("ppt-guidance", {
+		description: "Manage extracted teaching guidance index: status, rebuild",
+		handler: async (args, ctx) => {
+			await ensurePresentationInitialized(ctx.cwd);
+			const [command = "status"] = args.trim().split(/\s+/).filter(Boolean);
+			if (command === "rebuild") {
+				const index = await rebuildGuidanceIndex(ctx.cwd);
+				ctx.ui.notify(formatGuidanceStatus(index), index.warnings.length > 0 ? "warning" : "info");
+				return;
+			}
+			const index = await loadGuidanceIndex(ctx.cwd);
+			ctx.ui.notify(formatGuidanceStatus(index), index.warnings.length > 0 ? "warning" : "info");
 		},
 	});
 
@@ -89,10 +132,16 @@ export default function presentationExtension(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("music-ppt", {
-		description: "Generate a primary music PPT project from an indexed lesson request",
+		description: "Plan or generate a primary music PPT project from an indexed lesson request",
 		handler: async (args, ctx) => {
 			await ensurePresentationInitialized(ctx.cwd);
 			try {
+				const [command = "", ...rest] = args.trim().split(/\s+/).filter(Boolean);
+				if (command === "plan") {
+					const result = await planMusicDeck(ctx.cwd, rest.join(" "));
+					ctx.ui.notify(`已规划《${result.context.request.title}》PPT：${result.files.storyboardPath}`, "info");
+					return;
+				}
 				const result = await generateMusicDeck(ctx.cwd, args);
 				ctx.ui.notify(`已生成《${result.context.request.title}》PPT 项目：${result.projectId}`, "info");
 			} catch (error) {
@@ -125,6 +174,48 @@ export default function presentationExtension(pi: ExtensionAPI) {
 				content: [
 					{ type: "text", text: `Textbook index: ${Array.isArray(index.books) ? index.books.length : 0} books` },
 				],
+				details: index,
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "presentation_sources_status",
+		label: "Presentation Sources Status",
+		description: "Read presentation source manifest status.",
+		parameters: EmptyParams,
+		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+			const manifest = await readPresentationSourceManifest(ctx.cwd);
+			return {
+				content: [{ type: "text", text: formatSourceManifestStatus(manifest) }],
+				details: manifest,
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "presentation_guidance_status",
+		label: "Presentation Guidance Status",
+		description: "Read extracted teaching guidance status.",
+		parameters: EmptyParams,
+		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+			const index = await loadGuidanceIndex(ctx.cwd);
+			return {
+				content: [{ type: "text", text: formatGuidanceStatus(index) }],
+				details: index,
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "presentation_guidance_rebuild",
+		label: "Presentation Guidance Rebuild",
+		description: "Rebuild extracted teaching guidance index from source manifest.",
+		parameters: EmptyParams,
+		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+			const index = await rebuildGuidanceIndex(ctx.cwd);
+			return {
+				content: [{ type: "text", text: formatGuidanceStatus(index) }],
 				details: index,
 			};
 		},
@@ -169,6 +260,20 @@ export default function presentationExtension(pi: ExtensionAPI) {
 			const result = await generateMusicDeck(ctx.cwd, params.request);
 			return {
 				content: [{ type: "text", text: `Generated ${result.files.pptxPath}` }],
+				details: result,
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "presentation_plan_music_deck",
+		label: "Presentation Plan Music Deck",
+		description: "Plan a primary music PPT project and write lesson context plus storyboard artifacts.",
+		parameters: LessonParams,
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const result = await planMusicDeck(ctx.cwd, params.request);
+			return {
+				content: [{ type: "text", text: `Planned ${result.files.storyboardPath}` }],
 				details: result,
 			};
 		},
