@@ -14,6 +14,7 @@ All notable changes to this package will be documented in this file.
 - Added basic SVG project QA reports for slide count, notes, assets, and forbidden student-facing terms.
 - Added configurable PPT Master SVG-to-PPTX export adapter.
 - Added the standalone `music-ppt` CLI for initializing, indexing, planning, rendering, and exporting primary music PPT projects.
+- Added project-local runtime configuration and `music-ppt doctor` for PPT Master exporter setup.
 
 ### Changed
 

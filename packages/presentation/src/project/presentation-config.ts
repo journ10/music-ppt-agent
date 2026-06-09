@@ -10,6 +10,7 @@ export type PresentationProjectPaths = {
 	primaryMusicCurriculum: string;
 	teachingGuidance: string;
 	learnedRequirements: string;
+	runtimeConfig: string;
 	sourceManifest: string;
 	textbookIndex: string;
 	guidanceIndex: string;
@@ -24,6 +25,7 @@ export function getPresentationProjectPaths(projectRoot: string): PresentationPr
 		primaryMusicCurriculum: join(presentationRoot, "curriculum", "primary-music-curriculum.md"),
 		teachingGuidance: join(presentationRoot, "curriculum", "teaching-guidance.md"),
 		learnedRequirements: join(presentationRoot, "memory", "learned-requirements.md"),
+		runtimeConfig: join(presentationRoot, "config.json"),
 		sourceManifest: join(presentationRoot, "sources.json"),
 		textbookIndex: join(presentationRoot, "index", "textbooks.index.json"),
 		guidanceIndex: join(presentationRoot, "index", "guidance.index.json"),

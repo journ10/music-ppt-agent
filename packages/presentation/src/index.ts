@@ -66,6 +66,14 @@ export { getPresentationProjectPaths } from "./project/presentation-config.ts";
 export type { PresentationInitResult } from "./project/presentation-init.ts";
 export { initializePresentationProject } from "./project/presentation-init.ts";
 export { DEFAULT_LEARNED_REQUIREMENTS } from "./project/requirements-memory.ts";
+export type { PresentationRuntimeConfig } from "./project/runtime-config.ts";
+export {
+	EMPTY_PRESENTATION_RUNTIME_CONFIG,
+	formatPresentationRuntimeConfig,
+	readPresentationRuntimeConfig,
+	rememberPptMasterExportConfig,
+	writePresentationRuntimeConfig,
+} from "./project/runtime-config.ts";
 export type {
 	PresentationSourceEntry,
 	PresentationSourceKind,

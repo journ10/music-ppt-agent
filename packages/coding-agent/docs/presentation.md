@@ -29,16 +29,20 @@ music-ppt sources status
 music-ppt guidance rebuild
 music-ppt index rebuild
 music-ppt index inspect "温暖的家"
+music-ppt config set ppt-master /path/to/ppt-master/skills/ppt-master/scripts/svg_to_pptx.py
+music-ppt doctor
 music-ppt plan "做一年级下册《温暖的家》的教学PPT"
 music-ppt svg "做一年级下册《温暖的家》的教学PPT"
 music-ppt pptx "做一年级下册《温暖的家》的教学PPT"
 ```
 
-For PPT Master SVG export, set:
+For PPT Master SVG export, either save the script path once with `music-ppt config set ppt-master`, or set:
 
 ```bash
 export PI_PRESENTATION_SVG_TO_PPTX_SCRIPT=/path/to/ppt-master/skills/ppt-master/scripts/svg_to_pptx.py
 ```
+
+The saved CLI configuration lives in `.pi/presentation/config.json`.
 
 `music-ppt <lesson request>` is shorthand for `music-ppt pptx <lesson request>`.
 

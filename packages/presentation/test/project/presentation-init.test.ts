@@ -5,6 +5,7 @@ import {
 	DEFAULT_LEARNED_REQUIREMENTS,
 	DEFAULT_PPT_REQUIREMENTS,
 	EMPTY_GUIDANCE_INDEX,
+	EMPTY_PRESENTATION_RUNTIME_CONFIG,
 	EMPTY_PRESENTATION_SOURCE_MANIFEST,
 	initializePresentationProject,
 } from "@earendil-works/pi-presentation";
@@ -35,6 +36,7 @@ describe("initializePresentationProject", () => {
 		expect(result.presentationRoot).toBe(join(projectRoot, ".pi", "presentation"));
 		expect(result.createdFiles.sort()).toEqual([
 			"PPT.md",
+			"config.json",
 			"curriculum/primary-music-curriculum.md",
 			"curriculum/teaching-guidance.md",
 			"index/guidance.index.json",
@@ -69,6 +71,7 @@ describe("initializePresentationProject", () => {
 		expect(JSON.parse(await readProjectFile(projectRoot, "sources.json"))).toEqual(
 			EMPTY_PRESENTATION_SOURCE_MANIFEST,
 		);
+		expect(JSON.parse(await readProjectFile(projectRoot, "config.json"))).toEqual(EMPTY_PRESENTATION_RUNTIME_CONFIG);
 	});
 
 	it("is idempotent and does not overwrite existing user requirements", async () => {

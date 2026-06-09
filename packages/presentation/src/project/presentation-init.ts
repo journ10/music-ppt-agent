@@ -10,6 +10,7 @@ import {
 	PRESENTATION_PROJECT_DIRECTORIES,
 } from "./presentation-config.ts";
 import { DEFAULT_LEARNED_REQUIREMENTS } from "./requirements-memory.ts";
+import { EMPTY_PRESENTATION_RUNTIME_CONFIG, formatPresentationRuntimeConfig } from "./runtime-config.ts";
 import { EMPTY_PRESENTATION_SOURCE_MANIFEST, formatPresentationSourceManifest } from "./source-manifest.ts";
 
 export type PresentationInitResult = {
@@ -84,6 +85,12 @@ export async function initializePresentationProject(projectRoot: string): Promis
 		paths.sourceManifest,
 		"sources.json",
 		formatPresentationSourceManifest(EMPTY_PRESENTATION_SOURCE_MANIFEST),
+		createdFiles,
+	);
+	await writeFileIfMissing(
+		paths.runtimeConfig,
+		"config.json",
+		formatPresentationRuntimeConfig(EMPTY_PRESENTATION_RUNTIME_CONFIG),
 		createdFiles,
 	);
 	await writeFileIfMissing(

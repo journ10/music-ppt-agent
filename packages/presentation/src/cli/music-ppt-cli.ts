@@ -5,6 +5,7 @@ import { loadGuidanceIndex, rebuildGuidanceIndex } from "../curriculum/guidance-
 import { normalizeMusicLessonRequest } from "../lesson/lesson-request.ts";
 import { planMusicDeck } from "../lesson/music-deck-generator.ts";
 import { initializePresentationProject } from "../project/presentation-init.ts";
+import { readPresentationRuntimeConfig, rememberPptMasterExportConfig } from "../project/runtime-config.ts";
 import { readPresentationSourceManifest } from "../project/source-manifest.ts";
 import { renderAndExportMusicDeck, type SvgPptxExporter } from "../svg/svg-pptx-exporter.ts";
 import { renderMusicDeckSvgProject } from "../svg/svg-project-renderer.ts";
@@ -32,7 +33,7 @@ type ParsedCliArgs = {
 	showHelp: boolean;
 };
 
-const COMMANDS = new Set(["init", "sources", "guidance", "index", "plan", "svg", "pptx"]);
+const COMMANDS = new Set(["init", "sources", "guidance", "index", "config", "doctor", "plan", "svg", "pptx"]);
 
 const HELP_TEXT = `music-ppt - primary music teacher PPT generator
 
@@ -41,6 +42,9 @@ Usage:
   music-ppt sources status [--root <dir>]
   music-ppt guidance status|rebuild [--root <dir>]
   music-ppt index status|rebuild|inspect <lesson> [--root <dir>]
+  music-ppt config show [--root <dir>]
+  music-ppt config set ppt-master <svg_to_pptx.py> [--root <dir>] [--python <python>]
+  music-ppt doctor [--root <dir>]
   music-ppt plan <lesson request> [--root <dir>] [--project-id <id>]
   music-ppt svg <lesson request> [--root <dir>] [--project-id <id>]
   music-ppt pptx <lesson request> [--root <dir>] [--project-id <id>] [--output <file>] [--svg-to-pptx-script <file>]
@@ -194,6 +198,19 @@ async function formatTextbookIndexStatus(projectRoot: string) {
 	}
 }
 
+async function countIndexedTextbooks(projectRoot: string) {
+	const indexPath = join(projectRoot, ".pi", "presentation", "index", "textbooks.index.json");
+	try {
+		const index = JSON.parse(await readFile(indexPath, "utf-8")) as { books?: unknown[] };
+		return Array.isArray(index.books) ? index.books.length : 0;
+	} catch (error) {
+		if (isNotFoundError(error)) {
+			return 0;
+		}
+		throw error;
+	}
+}
+
 function requestFromArgs(args: string[]) {
 	const request = args.join(" ").trim();
 	if (!request) {
@@ -255,6 +272,59 @@ async function runIndexCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
 	throw new Error(`Unknown index command: ${subcommand}`);
 }
 
+async function runConfigCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
+	await ensurePresentationInitialized(parsed.projectRoot);
+	const [subcommand = "show", target, value] = parsed.commandArgs;
+	if (subcommand === "show") {
+		const config = await readPresentationRuntimeConfig(parsed.projectRoot);
+		stdout(JSON.stringify(config, null, 2));
+		if (config.pptMaster?.svgToPptxScript) {
+			stdout(`PPT Master SVG exporter: ${config.pptMaster.svgToPptxScript}`);
+		}
+		return;
+	}
+	if (subcommand === "set" && target === "ppt-master") {
+		if (!value) {
+			throw new Error("Missing svg_to_pptx.py path for config set ppt-master.");
+		}
+		const config = await rememberPptMasterExportConfig(parsed.projectRoot, {
+			svgToPptxScript: resolve(parsed.projectRoot, value),
+			pythonPath: parsed.pythonPath,
+		});
+		stdout(`PPT Master SVG exporter: ${config.pptMaster?.svgToPptxScript ?? ""}`);
+		return;
+	}
+	throw new Error(`Unknown config command: ${parsed.commandArgs.join(" ")}`);
+}
+
+async function runDoctorCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
+	const presentationRoot = join(parsed.projectRoot, ".pi", "presentation");
+	const initialized = await fileExists(presentationRoot);
+	stdout(`Presentation root: ${initialized ? presentationRoot : "missing"}`);
+	if (!initialized) {
+		stdout("Doctor: missing presentation context");
+		return;
+	}
+
+	const manifest = await readPresentationSourceManifest(parsed.projectRoot);
+	stdout(formatSourceManifestStatus(manifest));
+	const guidanceIndex = await loadGuidanceIndex(parsed.projectRoot);
+	stdout(formatGuidanceStatus(guidanceIndex));
+	stdout(`Textbook index: ${await countIndexedTextbooks(parsed.projectRoot)} books`);
+
+	const config = await readPresentationRuntimeConfig(parsed.projectRoot);
+	const scriptPath = config.pptMaster?.svgToPptxScript ?? process.env.PI_PRESENTATION_SVG_TO_PPTX_SCRIPT;
+	let scriptExists = false;
+	if (scriptPath) {
+		scriptExists = await fileExists(scriptPath);
+		stdout(`PPT Master SVG exporter: ${scriptPath}`);
+		stdout(`PPT Master SVG exporter exists: ${scriptExists ? "yes" : "no"}`);
+	} else {
+		stdout("PPT Master SVG exporter: missing");
+	}
+	stdout(initialized && scriptExists ? "Doctor: ready" : "Doctor: needs configuration");
+}
+
 async function runPlanCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
 	await ensurePresentationInitialized(parsed.projectRoot);
 	const result = await planMusicDeck(parsed.projectRoot, requestFromArgs(parsed.commandArgs), {
@@ -312,6 +382,14 @@ export async function runMusicPptCli(argv: string[], options: MusicPptCliOptions
 		}
 		if (parsed.command === "index") {
 			await runIndexCommand(parsed, stdout);
+			return 0;
+		}
+		if (parsed.command === "config") {
+			await runConfigCommand(parsed, stdout);
+			return 0;
+		}
+		if (parsed.command === "doctor") {
+			await runDoctorCommand(parsed, stdout);
 			return 0;
 		}
 		if (parsed.command === "plan") {

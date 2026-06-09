@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { readPresentationRuntimeConfig } from "../project/runtime-config.ts";
 import { type RenderMusicDeckSvgProjectOptions, renderMusicDeckSvgProject } from "./svg-project-renderer.ts";
 
 export type SvgPptxExportOptions = {
@@ -92,12 +93,13 @@ export async function renderAndExportMusicDeck(
 	if (rendered.audit.errors.length > 0) {
 		throw new Error(`SVG project failed QA: ${rendered.audit.errors.join("; ")}`);
 	}
+	const runtimeConfig = await readPresentationRuntimeConfig(projectRoot);
 	const exportSvgProject = options.exportSvgProject ?? exportSvgProjectToPptx;
 	const pptxExport = await exportSvgProject({
 		projectDir: rendered.files.projectDir,
 		outputPath: options.outputPath,
-		svgToPptxScript: options.svgToPptxScript,
-		pythonPath: options.pythonPath,
+		svgToPptxScript: options.svgToPptxScript ?? runtimeConfig.pptMaster?.svgToPptxScript,
+		pythonPath: options.pythonPath ?? runtimeConfig.pptMaster?.pythonPath,
 	});
 
 	return {

@@ -202,4 +202,75 @@ describe("runMusicPptCli", () => {
 		expect(output.lines.join("\n")).toContain("Indexed 1, skipped 0");
 		expect(output.lines.join("\n")).toContain("粤教版-一年级下册《温暖的家》第3-3页");
 	});
+
+	it("stores PPT Master configuration, reports doctor status, and reuses the configured exporter", async () => {
+		const projectRoot = await createTempProject("pi-music-ppt-cli-config-");
+		await initializePresentationProject(projectRoot);
+		await writeFile(
+			join(projectRoot, ".pi", "presentation", "textbooks", "粤教版-一年级下册.pdf"),
+			minimalPdfFixture([
+				"目录\n第5单元 幸福的一家 / 31\n演唱 温暖的家 / 33",
+				"幸福的一家\n31",
+				"温暖的家\n想想：你能为家人做些什么事情来表达自己的爱呢？\n33",
+			]),
+		);
+		await indexTextbooks(projectRoot);
+		const exporterPath = join(projectRoot, "svg_to_pptx.py");
+		await writeFile(exporterPath, "# fake exporter\n", "utf-8");
+		const output = createOutputCollector();
+		let receivedScriptPath: string | undefined;
+
+		const configExitCode = await runMusicPptCli(
+			["config", "set", "ppt-master", exporterPath, "--root", projectRoot],
+			{
+				cwd: "/tmp",
+				stdout: output.writeLine,
+				stderr: output.writeLine,
+			},
+		);
+		const showExitCode = await runMusicPptCli(["config", "show", "--root", projectRoot], {
+			cwd: "/tmp",
+			stdout: output.writeLine,
+			stderr: output.writeLine,
+		});
+		const doctorExitCode = await runMusicPptCli(["doctor", "--root", projectRoot], {
+			cwd: "/tmp",
+			stdout: output.writeLine,
+			stderr: output.writeLine,
+		});
+		const pptxExitCode = await runMusicPptCli(
+			["pptx", "做一年级下册《温暖的家》的教学PPT", "--root", projectRoot, "--project-id", "configured-pptx"],
+			{
+				cwd: "/tmp",
+				stdout: output.writeLine,
+				stderr: output.writeLine,
+				renderPdfPage: async (options) => {
+					await writeFile(options.outputPath, tinyPngFixture());
+					return {
+						outputPath: options.outputPath,
+						widthPx: 1600,
+						heightPx: 2263,
+					};
+				},
+				exportSvgProject: async (options) => {
+					receivedScriptPath = options.svgToPptxScript;
+					const outputPath = options.outputPath ?? join(projectRoot, "configured.pptx");
+					await writeFile(outputPath, "fake pptx", "utf-8");
+					return {
+						projectDir: options.projectDir,
+						outputPath,
+						scriptPath: options.svgToPptxScript ?? "missing",
+					};
+				},
+			},
+		);
+
+		expect(configExitCode).toBe(0);
+		expect(showExitCode).toBe(0);
+		expect(doctorExitCode).toBe(0);
+		expect(pptxExitCode).toBe(0);
+		expect(receivedScriptPath).toBe(exporterPath);
+		expect(output.lines.join("\n")).toContain(`PPT Master SVG exporter: ${exporterPath}`);
+		expect(output.lines.join("\n")).toContain("Doctor: ready");
+	});
 });
