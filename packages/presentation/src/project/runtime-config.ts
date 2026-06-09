@@ -7,6 +7,11 @@ export type PresentationRuntimeConfig = {
 		svgToPptxScript?: string;
 		pythonPath?: string;
 	};
+	visualQa?: {
+		libreOfficePath?: string;
+		pdfToPngPath?: string;
+		pythonPath?: string;
+	};
 };
 
 export const EMPTY_PRESENTATION_RUNTIME_CONFIG: PresentationRuntimeConfig = {

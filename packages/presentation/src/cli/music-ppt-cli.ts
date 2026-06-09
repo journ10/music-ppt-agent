@@ -1,5 +1,5 @@
 import { access, readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { basename, delimiter, dirname, join, resolve } from "node:path";
 import type { PdfPageRenderer } from "../assets/pdf-page-renderer.ts";
 import { loadGuidanceIndex, rebuildGuidanceIndex } from "../curriculum/guidance-extractor.ts";
 import { normalizeMusicLessonRequest } from "../lesson/lesson-request.ts";
@@ -7,6 +7,7 @@ import { planMusicDeck } from "../lesson/music-deck-generator.ts";
 import { initializePresentationProject } from "../project/presentation-init.ts";
 import { readPresentationRuntimeConfig, rememberPptMasterExportConfig } from "../project/runtime-config.ts";
 import { readPresentationSourceManifest } from "../project/source-manifest.ts";
+import { type PptxReviewRenderer, renderPptxReview } from "../qa/pptx-review-renderer.ts";
 import { renderAndExportMusicDeck, type SvgPptxExporter } from "../svg/svg-pptx-exporter.ts";
 import { renderMusicDeckSvgProject } from "../svg/svg-project-renderer.ts";
 import { indexTextbooks } from "../textbooks/textbook-indexer.ts";
@@ -20,6 +21,7 @@ export type MusicPptCliOptions = {
 	stderr?: OutputWriter;
 	renderPdfPage?: PdfPageRenderer;
 	exportSvgProject?: SvgPptxExporter;
+	renderPptxReview?: PptxReviewRenderer;
 };
 
 type ParsedCliArgs = {
@@ -28,12 +30,13 @@ type ParsedCliArgs = {
 	projectRoot: string;
 	projectId?: string;
 	outputPath?: string;
+	reviewOutputDir?: string;
 	svgToPptxScript?: string;
 	pythonPath?: string;
 	showHelp: boolean;
 };
 
-const COMMANDS = new Set(["init", "sources", "guidance", "index", "config", "doctor", "plan", "svg", "pptx"]);
+const COMMANDS = new Set(["init", "sources", "guidance", "index", "config", "doctor", "review", "plan", "svg", "pptx"]);
 
 const HELP_TEXT = `music-ppt - primary music teacher PPT generator
 
@@ -45,6 +48,7 @@ Usage:
   music-ppt config show [--root <dir>]
   music-ppt config set ppt-master <svg_to_pptx.py> [--root <dir>] [--python <python>]
   music-ppt doctor [--root <dir>]
+  music-ppt review <pptx> [--root <dir>] [--out <dir>]
   music-ppt plan <lesson request> [--root <dir>] [--project-id <id>]
   music-ppt svg <lesson request> [--root <dir>] [--project-id <id>]
   music-ppt pptx <lesson request> [--root <dir>] [--project-id <id>] [--output <file>] [--svg-to-pptx-script <file>]
@@ -52,6 +56,8 @@ Usage:
 
 Environment:
   PI_PRESENTATION_SVG_TO_PPTX_SCRIPT  PPT Master svg_to_pptx.py path
+  PI_PRESENTATION_LIBREOFFICE          LibreOffice executable for visual review
+  PI_PRESENTATION_PDFTOPPM             Poppler pdftoppm executable for visual review
   PI_PRESENTATION_PYTHON              Python executable for PPT Master export
 `;
 
@@ -68,6 +74,20 @@ async function fileExists(path: string) {
 	}
 }
 
+async function findExecutable(commandName: string) {
+	if (commandName.includes("/")) {
+		return (await fileExists(commandName)) ? commandName : undefined;
+	}
+	const pathEntries = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
+	for (const pathEntry of pathEntries) {
+		const candidate = join(pathEntry, commandName);
+		if (await fileExists(candidate)) {
+			return candidate;
+		}
+	}
+	return undefined;
+}
+
 function nextValue(args: string[], index: number, flag: string) {
 	const value = args[index + 1];
 	if (value === undefined || value.startsWith("--")) {
@@ -81,6 +101,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 	let projectRoot = cwd;
 	let projectId: string | undefined;
 	let outputPath: string | undefined;
+	let reviewOutputDir: string | undefined;
 	let svgToPptxScript: string | undefined;
 	let pythonPath: string | undefined;
 	let showHelp = false;
@@ -103,6 +124,11 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 		}
 		if (arg === "--output") {
 			outputPath = resolve(cwd, nextValue(argv, index, arg));
+			index += 1;
+			continue;
+		}
+		if (arg === "--out") {
+			reviewOutputDir = resolve(cwd, nextValue(argv, index, arg));
 			index += 1;
 			continue;
 		}
@@ -129,6 +155,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 			projectRoot,
 			projectId,
 			outputPath,
+			reviewOutputDir,
 			svgToPptxScript,
 			pythonPath,
 			showHelp: true,
@@ -143,6 +170,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 			projectRoot,
 			projectId,
 			outputPath,
+			reviewOutputDir,
 			svgToPptxScript,
 			pythonPath,
 			showHelp,
@@ -155,6 +183,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 		projectRoot,
 		projectId,
 		outputPath,
+		reviewOutputDir,
 		svgToPptxScript,
 		pythonPath,
 		showHelp,
@@ -322,7 +351,37 @@ async function runDoctorCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
 	} else {
 		stdout("PPT Master SVG exporter: missing");
 	}
+	const libreOfficePath =
+		config.visualQa?.libreOfficePath ??
+		process.env.PI_PRESENTATION_LIBREOFFICE ??
+		(await findExecutable("soffice")) ??
+		(await findExecutable("libreoffice"));
+	const pdfToPngPath =
+		config.visualQa?.pdfToPngPath ?? process.env.PI_PRESENTATION_PDFTOPPM ?? (await findExecutable("pdftoppm"));
+	const pythonPath =
+		config.visualQa?.pythonPath ?? process.env.PI_PRESENTATION_PYTHON ?? (await findExecutable("python3"));
+	stdout(`Visual QA LibreOffice: ${libreOfficePath ?? "missing"}`);
+	stdout(`Visual QA PDF renderer: ${pdfToPngPath ?? "missing"}`);
+	stdout(`Visual QA Python: ${pythonPath ?? "missing"}`);
 	stdout(initialized && scriptExists ? "Doctor: ready" : "Doctor: needs configuration");
+}
+
+async function runReviewCommand(parsed: ParsedCliArgs, options: MusicPptCliOptions, stdout: OutputWriter) {
+	await ensurePresentationInitialized(parsed.projectRoot);
+	const pptxPath = resolve(parsed.projectRoot, requestFromArgs(parsed.commandArgs));
+	const outputDir = parsed.reviewOutputDir ?? join(dirname(pptxPath), `${basename(pptxPath)}.review`);
+	const config = await readPresentationRuntimeConfig(parsed.projectRoot);
+	const renderer = options.renderPptxReview ?? renderPptxReview;
+	const report = await renderer({
+		pptxPath,
+		outputDir,
+		libreOfficePath: config.visualQa?.libreOfficePath,
+		pdfToPngPath: config.visualQa?.pdfToPngPath,
+		pythonPath: config.visualQa?.pythonPath,
+	});
+	stdout(`Review contact sheet: ${report.contactSheetPath}`);
+	stdout(`Review report: ${report.reportMarkdownPath}`);
+	stdout(`Review page images: ${report.pageImagePaths.length}`);
 }
 
 async function runPlanCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
@@ -390,6 +449,10 @@ export async function runMusicPptCli(argv: string[], options: MusicPptCliOptions
 		}
 		if (parsed.command === "doctor") {
 			await runDoctorCommand(parsed, stdout);
+			return 0;
+		}
+		if (parsed.command === "review") {
+			await runReviewCommand(parsed, options, stdout);
 			return 0;
 		}
 		if (parsed.command === "plan") {

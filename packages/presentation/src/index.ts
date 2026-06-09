@@ -92,6 +92,13 @@ export type { PptxMediaAuditItem } from "./qa/media-audit.ts";
 export { auditMediaParts } from "./qa/media-audit.ts";
 export type { PptxAuditOptions, PptxAuditReport } from "./qa/pptx-audit.ts";
 export { auditPptxPackage, formatPptxAuditMarkdown } from "./qa/pptx-audit.ts";
+export type {
+	PptxReviewCommandRunner,
+	PptxReviewRenderer,
+	PptxReviewReport,
+	RenderPptxReviewOptions,
+} from "./qa/pptx-review-renderer.ts";
+export { renderPptxReview } from "./qa/pptx-review-renderer.ts";
 export type { ForbiddenTermFinding } from "./qa/slide-text-audit.ts";
 export { auditSlideText } from "./qa/slide-text-audit.ts";
 export type { SvgProjectAuditOptions, SvgProjectAuditReport } from "./qa/svg-project-audit.ts";

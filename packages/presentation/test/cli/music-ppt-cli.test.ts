@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -271,6 +271,52 @@ describe("runMusicPptCli", () => {
 		expect(pptxExitCode).toBe(0);
 		expect(receivedScriptPath).toBe(exporterPath);
 		expect(output.lines.join("\n")).toContain(`PPT Master SVG exporter: ${exporterPath}`);
+		expect(output.lines.join("\n")).toContain("Visual QA LibreOffice:");
+		expect(output.lines.join("\n")).toContain("Visual QA PDF renderer:");
 		expect(output.lines.join("\n")).toContain("Doctor: ready");
+	});
+
+	it("renders PPTX review artifacts from the standalone CLI", async () => {
+		const projectRoot = await createTempProject("pi-music-ppt-cli-review-");
+		await initializePresentationProject(projectRoot);
+		const pptxPath = join(projectRoot, "lesson.pptx");
+		const outputDir = join(projectRoot, "review");
+		await writeFile(pptxPath, "fake pptx", "utf-8");
+		const output = createOutputCollector();
+
+		const exitCode = await runMusicPptCli(["review", pptxPath, "--root", projectRoot, "--out", outputDir], {
+			cwd: "/tmp",
+			stdout: output.writeLine,
+			stderr: output.writeLine,
+			renderPptxReview: async (options) => {
+				const pdfPath = join(options.outputDir, "lesson.pdf");
+				const pageImagePath = join(options.outputDir, "pages", "page-01.png");
+				const contactSheetPath = join(options.outputDir, "contact-sheet.png");
+				const reportJsonPath = join(options.outputDir, "review-report.json");
+				const reportMarkdownPath = join(options.outputDir, "review-report.md");
+				await mkdir(join(options.outputDir, "pages"), { recursive: true });
+				await writeFile(pdfPath, "fake pdf", "utf-8");
+				await writeFile(pageImagePath, tinyPngFixture());
+				await writeFile(contactSheetPath, tinyPngFixture());
+				await writeFile(reportJsonPath, "{}", "utf-8");
+				await writeFile(reportMarkdownPath, "# Review\n", "utf-8");
+				return {
+					pptxPath: options.pptxPath,
+					outputDir: options.outputDir,
+					pdfPath,
+					pageImagePaths: [pageImagePath],
+					contactSheetPath,
+					reportJsonPath,
+					reportMarkdownPath,
+					errors: [],
+					warnings: [],
+				};
+			},
+		});
+
+		expect(exitCode).toBe(0);
+		expect(output.lines.join("\n")).toContain(`Review contact sheet: ${join(outputDir, "contact-sheet.png")}`);
+		expect(output.lines.join("\n")).toContain(`Review report: ${join(outputDir, "review-report.md")}`);
+		expect(await readFile(join(outputDir, "review-report.md"), "utf-8")).toBe("# Review\n");
 	});
 });

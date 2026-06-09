@@ -15,6 +15,7 @@ All notable changes to this package will be documented in this file.
 - Added configurable PPT Master SVG-to-PPTX export adapter.
 - Added the standalone `music-ppt` CLI for initializing, indexing, planning, rendering, and exporting primary music PPT projects.
 - Added project-local runtime configuration and `music-ppt doctor` for PPT Master exporter setup.
+- Added `music-ppt review` for visual QA review artifacts when LibreOffice and PDF rendering tools are available.
 
 ### Changed
 
