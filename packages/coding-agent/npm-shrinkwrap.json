@@ -514,6 +514,9 @@
 			"version": "0.78.1",
 			"resolved": "https://registry.npmjs.org/@earendil-works/pi-presentation/-/pi-presentation-0.78.1.tgz",
 			"license": "MIT",
+			"bin": {
+				"music-ppt": "./dist/cli.js"
+			},
 			"engines": {
 				"node": ">=22.19.0"
 			}

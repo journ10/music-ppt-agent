@@ -27,7 +27,7 @@ export function normalizeMusicLessonRequest(rawText: string): NormalizedMusicLes
 
 function fallbackTitle(rawText: string) {
 	return rawText
-		.replace(/PPT|ppt|课件|教学|音乐|小学|做|的/g, " ")
+		.replace(/PPT|ppt|课件|教学|音乐|小学|做/g, " ")
 		.replace(/[《》]/g, "")
 		.trim()
 		.replace(/\s+/g, " ");

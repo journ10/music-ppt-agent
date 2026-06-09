@@ -12,6 +12,8 @@ export type {
 	TextbookPageAsset,
 } from "./assets/textbook-assets.ts";
 export { materializeTextbookAssets } from "./assets/textbook-assets.ts";
+export type { MusicPptCliOptions } from "./cli/music-ppt-cli.ts";
+export { runMusicPptCli } from "./cli/music-ppt-cli.ts";
 export type { CurriculumContext, CurriculumMarkdownFile } from "./curriculum/curriculum-loader.ts";
 export { loadCurriculumContext } from "./curriculum/curriculum-loader.ts";
 export { DEFAULT_PRIMARY_MUSIC_CURRICULUM, DEFAULT_TEACHING_GUIDANCE } from "./curriculum/default-curriculum.ts";

@@ -1,6 +1,7 @@
 # Presentation Generation
 
-Pi includes a presentation workflow for小学音乐教学 PPT generation.
+Pi includes a presentation workflow for小学音乐教学 PPT generation. The dedicated `music-ppt` CLI can run the
+same pipeline without entering Pi interactive mode.
 
 ## Project Layout
 
@@ -16,7 +17,30 @@ Run `/ppt-init` from a trusted project to create:
   projects/
 ```
 
-Place music textbook PDFs in `.pi/presentation/textbooks/`, then run `/ppt-index rebuild`.
+Place music textbook PDFs in `.pi/presentation/textbooks/`, then run `/ppt-index rebuild` or `music-ppt index rebuild`.
+
+## Standalone CLI
+
+Use the dedicated CLI when validating the PPT pipeline directly:
+
+```bash
+music-ppt init
+music-ppt sources status
+music-ppt guidance rebuild
+music-ppt index rebuild
+music-ppt index inspect "温暖的家"
+music-ppt plan "做一年级下册《温暖的家》的教学PPT"
+music-ppt svg "做一年级下册《温暖的家》的教学PPT"
+music-ppt pptx "做一年级下册《温暖的家》的教学PPT"
+```
+
+For PPT Master SVG export, set:
+
+```bash
+export PI_PRESENTATION_SVG_TO_PPTX_SCRIPT=/path/to/ppt-master/skills/ppt-master/scripts/svg_to_pptx.py
+```
+
+`music-ppt <lesson request>` is shorthand for `music-ppt pptx <lesson request>`.
 
 ## Commands
 
@@ -24,7 +48,10 @@ Place music textbook PDFs in `.pi/presentation/textbooks/`, then run `/ppt-index
 - `/ppt-index status` shows indexed textbook count.
 - `/ppt-index rebuild` hashes textbook PDFs and writes deterministic page and lesson indexes.
 - `/ppt-index inspect <lesson>` resolves a lesson against indexed textbooks.
-- `/music-ppt <request>` creates a deterministic PPTX project from an indexed lesson request.
+- `/music-ppt plan <request>` writes lesson context and storyboard artifacts.
+- `/music-ppt svg <request>` writes a PPT Master-style SVG project with textbook page assets.
+- `/music-ppt pptx-svg <request>` exports that SVG project through PPT Master's native PPTX adapter.
+- `/music-ppt <request>` creates the TypeScript OOXML PPTX project with embedded media support.
 
 Generated projects are written under `.pi/presentation/projects/<project-id>/` with:
 
@@ -44,6 +71,9 @@ The built-in presentation extension registers:
 - `presentation_index_rebuild`
 - `presentation_resolve_lesson`
 - `presentation_generate_music_deck`
+- `presentation_plan_music_deck`
+- `presentation_render_svg_project`
+- `presentation_export_svg_pptx`
 - `presentation_audit_pptx`
 - `presentation_remember_requirement`
 

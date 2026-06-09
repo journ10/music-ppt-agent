@@ -3,6 +3,9 @@
 	"version": "0.78.1",
 	"description": "Presentation generation primitives for Pi",
 	"type": "module",
+	"bin": {
+		"music-ppt": "./dist/cli.js"
+	},
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
@@ -18,7 +21,7 @@
 	],
 	"scripts": {
 		"clean": "shx rm -rf dist",
-		"build": "tsgo -p tsconfig.json",
+		"build": "tsgo -p tsconfig.json && shx chmod +x dist/cli.js",
 		"test": "vitest --run",
 		"prepublishOnly": "npm run clean && npm run build"
 	},
