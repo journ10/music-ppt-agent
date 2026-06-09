@@ -1,99 +1,114 @@
-<p align="center">
-  <a href="https://pi.dev">
-    <img alt="pi logo" src="https://pi.dev/logo-auto.svg" width="128">
-  </a>
-</p>
-<p align="center">
-  <a href="https://discord.com/invite/3cU7Bz4UPx"><img alt="Discord" src="https://img.shields.io/badge/discord-community-5865F2?style=flat-square&logo=discord&logoColor=white" /></a>
-</p>
-<p align="center">
-  <a href="https://pi.dev">pi.dev</a> domain graciously donated by
-  <br /><br />
-  <a href="https://exe.dev"><img src="packages/coding-agent/docs/images/exy.png" alt="Exy mascot" width="48" /><br />exe.dev</a>
-</p>
+# Music PPT Agent
 
-> New issues and PRs from new contributors are auto-closed by default. Maintainers review auto-closed issues daily. See [CONTRIBUTING.md](CONTRIBUTING.md).
+小学音乐教师 PPT 生成 Agent。当前目标是先用 CLI 验证能力：基于 Pi agent runtime，按 PPT Master 的原生 PPTX 管线思想生成可编辑 PowerPoint，而不是通用 Agent 临时调用一个 PPT skill。
 
----
+## 当前能力
 
-# Pi Agent Harness Mono Repo
+- 从一句课题请求生成小学音乐教学 PPTX，例如 `做一年级下册《温暖的家》的教学PPT`。
+- 读取本地教材 PDF，建立可复用课本索引，只在生成时渲染需要的教材页。
+- 读取指导思想/课程资料 PDF，抽取为隐藏教学约束，不把政策或课标术语放到学生页。
+- 生成 PPT Master-style SVG 项目，并通过可配置的 `svg_to_pptx.py` 导出原生、可编辑 PPTX。
+- 支持生成后立即运行 OOXML package audit 和 LibreOffice/Poppler 视觉 review。
+- 支持音频/视频嵌入与 PPTX package 级媒体审计。
 
-This is the home of the pi agent harness project including our self extensible coding agent.
+## 环境要求
 
-* **[@earendil-works/pi-coding-agent](packages/coding-agent)**: Interactive coding agent CLI
-* **[@earendil-works/pi-agent-core](packages/agent)**: Agent runtime with tool calling and state management
-* **[@earendil-works/pi-ai](packages/ai)**: Unified multi-provider LLM API (OpenAI, Anthropic, Google, …)
+- Node.js `>=22.19.0`
+- npm
+- PPT Master 的 `skills/ppt-master/scripts/svg_to_pptx.py`
+- 可选但建议安装：LibreOffice、Poppler `pdftoppm`、Python/Pillow，用于 `--review` 视觉检查
 
-To learn more about pi:
-
-* [Visit pi.dev](https://pi.dev), the project website with demos
-* [Read the documentation](https://pi.dev/docs/latest), but you can also ask the agent to explain itself
-
-## Share your OSS coding agent sessions
-
-If you use pi or other coding agents for open source work, please share your sessions.
-
-Public OSS session data helps improve coding agents with real-world tasks, tool use, failures, and fixes instead of toy benchmarks.
-
-For the full explanation, see [this post on X](https://x.com/badlogicgames/status/2037811643774652911).
-
-To publish sessions, use [`badlogic/pi-share-hf`](https://github.com/badlogic/pi-share-hf). Read its README.md for setup instructions. All you need is a Hugging Face account, the Hugging Face CLI, and `pi-share-hf`.
-
-You can also watch [this video](https://x.com/badlogicgames/status/2041151967695634619), where I show how I publish my `pi-mono` sessions.
-
-I regularly publish my own `pi-mono` work sessions here:
-
-- [badlogicgames/pi-mono on Hugging Face](https://huggingface.co/datasets/badlogicgames/pi-mono)
-
-## All Packages
-
-| Package | Description |
-|---------|-------------|
-| **[@earendil-works/pi-ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
-| **[@earendil-works/pi-agent-core](packages/agent)** | Agent runtime with tool calling and state management |
-| **[@earendil-works/pi-coding-agent](packages/coding-agent)** | Interactive coding agent CLI |
-| **[@earendil-works/pi-tui](packages/tui)** | Terminal UI library with differential rendering |
-
-For Slack/chat automation and workflows see [earendil-works/pi-chat](https://github.com/earendil-works/pi-chat).
-
-## Permissions & Containerization
-
-Pi does not include a built-in permission system for restricting filesystem, process, network, or credential access. By default, it runs with the permissions of the user and process that launched it.
-
-If you need stronger boundaries, containerize or sandbox Pi. See [packages/coding-agent/docs/containerization.md](packages/coding-agent/docs/containerization.md) for three patterns:
-
-- **OpenShell**: run the whole `pi` process in a policy-controlled sandbox.
-- **Gondolin extension**: keep `pi` and provider auth on the host while routing built-in tools and `!` commands into a local Linux micro-VM.
-- **Plain Docker**: run the whole `pi` process in a local container for simple isolation.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and [AGENTS.md](AGENTS.md) for project-specific rules (for both humans and agents).
-
-## Development
+安装依赖：
 
 ```bash
-npm install --ignore-scripts  # Install all dependencies without running lifecycle scripts
-npm run build        # Build all packages
-npm run check        # Lint, format, and type check
-./test.sh            # Run tests (skips LLM-dependent tests without API keys)
-./pi-test.sh         # Run pi from sources (can be run from any directory)
+npm install --ignore-scripts
 ```
 
-## Supply-chain hardening
+## 快速开始
 
-We treat npm dependency changes as reviewed code changes.
+源码仓库内使用 `npm run music-ppt --` 调 CLI。构建或安装 package 后可直接使用 `music-ppt`。
 
-- Direct external dependencies are pinned to exact versions. Internal workspace packages remain version-ranged.
-- `.npmrc` sets `save-exact=true` and `min-release-age=2` to avoid same-day dependency releases during npm resolution.
-- `package-lock.json` is the dependency ground truth. Pre-commit blocks accidental lockfile commits unless `PI_ALLOW_LOCKFILE_CHANGE=1` is set.
-- `npm run check` verifies pinned direct deps, native TypeScript import compatibility, and the generated coding-agent shrinkwrap.
-- The published CLI package includes `packages/coding-agent/npm-shrinkwrap.json`, generated from the root lockfile, to pin transitive deps for npm users.
-- Release smoke tests use `npm run release:local` to build, pack, and create isolated npm and Bun installs outside the repo before tagging a release.
-- Local release installs, documented npm installs, and `pi update --self` use `--ignore-scripts` where supported.
-- CI installs with `npm ci --ignore-scripts`, and a scheduled GitHub workflow runs `npm audit --omit=dev` plus `npm audit signatures --omit=dev`.
-- Shrinkwrap generation has an explicit allowlist for dependency lifecycle scripts; new lifecycle-script deps fail checks until reviewed.
+```bash
+npm run music-ppt -- init
 
-## License
+npm run music-ppt -- sources add guidance /path/to/guidance-1.pdf \
+  --id guidance-1 \
+  --title "教学指导"
 
-MIT
+npm run music-ppt -- sources add textbook /path/to/textbook.pdf \
+  --id yue-grade1-volume2 \
+  --title "粤教版一年级下册" \
+  --publisher "粤教版" \
+  --grade "一年级" \
+  --volume "下册"
+
+npm run music-ppt -- config set ppt-master /path/to/ppt-master/skills/ppt-master/scripts/svg_to_pptx.py
+npm run music-ppt -- doctor
+
+npm run music-ppt -- pptx "做一年级下册《温暖的家》的教学PPT" \
+  --rebuild \
+  --audit \
+  --review
+```
+
+`--rebuild` 会在生成前从已登记 sources 刷新指导思想索引和教材索引。`--audit` 会检查 PPTX 结构、页数、禁用学生页术语和媒体 package。`--review` 会把 PPTX 通过 LibreOffice 渲染成图片并生成 contact sheet。
+
+输出位于：
+
+```text
+.pi/presentation/projects/<project-id>/
+  lesson-plan.md
+  storyboard.json
+  media-manifest.json
+  svg_output/
+  exports/<project-id>.pptx
+  exports/<project-id>.pptx.audit/
+  exports/<project-id>.pptx.review/
+```
+
+## 常用命令
+
+```bash
+npm run music-ppt -- sources status
+npm run music-ppt -- guidance rebuild
+npm run music-ppt -- index rebuild
+npm run music-ppt -- index inspect "温暖的家"
+npm run music-ppt -- plan "做一年级下册《温暖的家》的教学PPT"
+npm run music-ppt -- svg "做一年级下册《温暖的家》的教学PPT"
+npm run music-ppt -- audit .pi/presentation/projects/<project-id>/exports/<project-id>.pptx
+npm run music-ppt -- review .pi/presentation/projects/<project-id>/exports/<project-id>.pptx
+```
+
+## 项目结构
+
+```text
+packages/presentation/
+  src/cli/                 # music-ppt CLI
+  src/project/             # .pi/presentation 初始化、配置、sources
+  src/curriculum/          # 指导思想抽取、禁用学生页术语
+  src/textbooks/           # PDF 文本抽取、教材索引、课题解析
+  src/lesson/              # lesson context 与 request normalization
+  src/storyboard/          # 音乐课 storyboard
+  src/svg/                 # PPT Master-style SVG 项目与导出适配
+  src/ooxml/               # PPTX package writer
+  src/media/               # 音视频嵌入与 manifest
+  src/qa/                  # PPTX audit 与 visual review
+
+packages/coding-agent/
+  src/core/builtin-extensions/presentation.ts
+  docs/presentation.md
+```
+
+## 和 Pi 的关系
+
+这个仓库是基于 Pi monorepo 二次开发的专用产品。底层 agent runtime、coding-agent 集成和部分 package 命名仍保留 Pi 结构，便于持续吸收 Pi 的 agent 能力；面向用户的产品入口是 `music-ppt`，目标不是通用 coding agent，而是小学音乐教师 PPT 生成工具。
+
+## 开发命令
+
+```bash
+npm run check
+cd packages/presentation
+node ../../node_modules/vitest/dist/cli.js --run test/cli/music-ppt-cli.test.ts
+```
+
+仓库规则见 `AGENTS.md`。代码改动后运行 `npm run check`；不要用 `git add .` 或 `git add -A`，只提交本次修改的明确路径。
