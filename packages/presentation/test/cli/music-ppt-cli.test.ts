@@ -319,4 +319,81 @@ describe("runMusicPptCli", () => {
 		expect(output.lines.join("\n")).toContain(`Review report: ${join(outputDir, "review-report.md")}`);
 		expect(await readFile(join(outputDir, "review-report.md"), "utf-8")).toBe("# Review\n");
 	});
+
+	it("can run visual review immediately after PPTX export", async () => {
+		const projectRoot = await createTempProject("pi-music-ppt-cli-pptx-review-");
+		await initializePresentationProject(projectRoot);
+		await writeFile(
+			join(projectRoot, ".pi", "presentation", "textbooks", "粤教版-一年级下册.pdf"),
+			minimalPdfFixture([
+				"目录\n第5单元 幸福的一家 / 31\n演唱 温暖的家 / 33",
+				"幸福的一家\n31",
+				"温暖的家\n想想：你能为家人做些什么事情来表达自己的爱呢？\n33",
+			]),
+		);
+		await indexTextbooks(projectRoot);
+		const output = createOutputCollector();
+		const exportedPath = join(projectRoot, "reviewed.pptx");
+		let reviewedPptxPath: string | undefined;
+
+		const exitCode = await runMusicPptCli(
+			[
+				"pptx",
+				"做一年级下册《温暖的家》的教学PPT",
+				"--root",
+				projectRoot,
+				"--project-id",
+				"reviewed-pptx",
+				"--output",
+				exportedPath,
+				"--review",
+			],
+			{
+				cwd: "/tmp",
+				stdout: output.writeLine,
+				stderr: output.writeLine,
+				renderPdfPage: async (options) => {
+					await writeFile(options.outputPath, tinyPngFixture());
+					return {
+						outputPath: options.outputPath,
+						widthPx: 1600,
+						heightPx: 2263,
+					};
+				},
+				exportSvgProject: async (options) => {
+					const outputPath = options.outputPath ?? exportedPath;
+					await writeFile(outputPath, "fake pptx", "utf-8");
+					return {
+						projectDir: options.projectDir,
+						outputPath,
+						scriptPath: "fake-svg-to-pptx.py",
+					};
+				},
+				renderPptxReview: async (options) => {
+					reviewedPptxPath = options.pptxPath;
+					const reportMarkdownPath = join(options.outputDir, "review-report.md");
+					const contactSheetPath = join(options.outputDir, "contact-sheet.png");
+					await mkdir(options.outputDir, { recursive: true });
+					await writeFile(contactSheetPath, tinyPngFixture());
+					await writeFile(reportMarkdownPath, "# Review\n", "utf-8");
+					return {
+						pptxPath: options.pptxPath,
+						outputDir: options.outputDir,
+						pdfPath: join(options.outputDir, "reviewed.pdf"),
+						pageImagePaths: [join(options.outputDir, "page-1.png")],
+						contactSheetPath,
+						reportJsonPath: join(options.outputDir, "review-report.json"),
+						reportMarkdownPath,
+						errors: [],
+						warnings: [],
+					};
+				},
+			},
+		);
+
+		expect(exitCode).toBe(0);
+		expect(reviewedPptxPath).toBe(exportedPath);
+		expect(output.lines.join("\n")).toContain(`Exported PPTX ${exportedPath}`);
+		expect(output.lines.join("\n")).toContain("Review contact sheet:");
+	});
 });

@@ -33,6 +33,7 @@ type ParsedCliArgs = {
 	reviewOutputDir?: string;
 	svgToPptxScript?: string;
 	pythonPath?: string;
+	reviewAfterExport: boolean;
 	showHelp: boolean;
 };
 
@@ -51,7 +52,7 @@ Usage:
   music-ppt review <pptx> [--root <dir>] [--out <dir>]
   music-ppt plan <lesson request> [--root <dir>] [--project-id <id>]
   music-ppt svg <lesson request> [--root <dir>] [--project-id <id>]
-  music-ppt pptx <lesson request> [--root <dir>] [--project-id <id>] [--output <file>] [--svg-to-pptx-script <file>]
+  music-ppt pptx <lesson request> [--root <dir>] [--project-id <id>] [--output <file>] [--svg-to-pptx-script <file>] [--review]
   music-ppt <lesson request> [--root <dir>] [--project-id <id>] [--output <file>]
 
 Environment:
@@ -104,6 +105,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 	let reviewOutputDir: string | undefined;
 	let svgToPptxScript: string | undefined;
 	let pythonPath: string | undefined;
+	let reviewAfterExport = false;
 	let showHelp = false;
 
 	for (let index = 0; index < argv.length; index += 1) {
@@ -142,6 +144,10 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 			index += 1;
 			continue;
 		}
+		if (arg === "--review") {
+			reviewAfterExport = true;
+			continue;
+		}
 		if (arg.startsWith("--")) {
 			throw new Error(`Unknown option: ${arg}`);
 		}
@@ -158,6 +164,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 			reviewOutputDir,
 			svgToPptxScript,
 			pythonPath,
+			reviewAfterExport,
 			showHelp: true,
 		};
 	}
@@ -173,6 +180,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 			reviewOutputDir,
 			svgToPptxScript,
 			pythonPath,
+			reviewAfterExport,
 			showHelp,
 		};
 	}
@@ -186,6 +194,7 @@ function parseArgs(argv: string[], cwd: string): ParsedCliArgs {
 		reviewOutputDir,
 		svgToPptxScript,
 		pythonPath,
+		reviewAfterExport,
 		showHelp,
 	};
 }
@@ -369,8 +378,18 @@ async function runDoctorCommand(parsed: ParsedCliArgs, stdout: OutputWriter) {
 async function runReviewCommand(parsed: ParsedCliArgs, options: MusicPptCliOptions, stdout: OutputWriter) {
 	await ensurePresentationInitialized(parsed.projectRoot);
 	const pptxPath = resolve(parsed.projectRoot, requestFromArgs(parsed.commandArgs));
-	const outputDir = parsed.reviewOutputDir ?? join(dirname(pptxPath), `${basename(pptxPath)}.review`);
-	const config = await readPresentationRuntimeConfig(parsed.projectRoot);
+	await runReviewForPptx(parsed.projectRoot, pptxPath, parsed.reviewOutputDir, options, stdout);
+}
+
+async function runReviewForPptx(
+	projectRoot: string,
+	pptxPath: string,
+	reviewOutputDir: string | undefined,
+	options: MusicPptCliOptions,
+	stdout: OutputWriter,
+) {
+	const outputDir = reviewOutputDir ?? join(dirname(pptxPath), `${basename(pptxPath)}.review`);
+	const config = await readPresentationRuntimeConfig(projectRoot);
 	const renderer = options.renderPptxReview ?? renderPptxReview;
 	const report = await renderer({
 		pptxPath,
@@ -414,6 +433,9 @@ async function runPptxCommand(parsed: ParsedCliArgs, options: MusicPptCliOptions
 	});
 	stdout(`Exported PPTX ${result.pptxExport.outputPath}`);
 	stdout(`SVG QA errors: ${result.audit.errors.length}, warnings: ${result.audit.warnings.length}`);
+	if (parsed.reviewAfterExport) {
+		await runReviewForPptx(parsed.projectRoot, result.pptxExport.outputPath, parsed.reviewOutputDir, options, stdout);
+	}
 }
 
 export async function runMusicPptCli(argv: string[], options: MusicPptCliOptions = {}): Promise<number> {
